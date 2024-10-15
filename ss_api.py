@@ -1,12 +1,12 @@
 import smartsheet
-import pandas as pd
 import sys
 import logging
 import os
+import openpyxl
 import toml
-import time
+from datetime import datetime
 
-from smartsheet.smartsheet import Smartsheet
+start_time = datetime.now()
 
 CONFIG = None
 _dir_in = os.path.join(os.path.dirname(os.path.abspath(__file__)), "in/")
@@ -23,12 +23,28 @@ def get_cell_by_column_name(row, column_name):
     return row.get_column(column_id)
 
 
+def delete_all_rows(smart, sheet):
+    if sheet.rows:
+        rowsToUpdate = []
+        for i, row in enumerate(sheet.rows):
+            if i > 0:
+                tmp_row = smart.models.Row()
+                tmp_row.id = row.id
+                tmp_row.parentId = sheet.rows[0].id
+                rowsToUpdate.append(tmp_row)
+
+        _ = smart.Sheets.update_rows(sheet.id, rowsToUpdate)
+
+        response = smart.Sheets.delete_rows(sheet.id, [sheet.rows[0].id])
+
+
 def get_sheet():
 
     smart = smartsheet.Smartsheet()
     smart.errors_as_exceptions(True)
 
     if type(CONFIG) == dict:
+        print("Starting ...")
         if "verbose" in CONFIG and CONFIG["verbose"] == True:
             logging.basicConfig(filename="sheet.log", level=logging.INFO)
         for k, v in CONFIG["tables"].items():
@@ -36,6 +52,13 @@ def get_sheet():
             table_src = v["src"]
             table_name = k
             smart.Sheets.get_sheet_as_excel(table_id, _dir_out)
+
+            workbook = openpyxl.load_workbook(
+                os.path.join(_dir_out, f"{table_name}.xlsx")
+            )
+            worksheet = workbook[table_name]
+            worksheet.title = "AUDIT"
+            workbook.save(os.path.join(_dir_out, f"{table_name}.xlsx"))
 
 
 def set_sheet():
@@ -67,12 +90,15 @@ def set_sheet():
                 CONFIG["tables"][k]["id"] = table_id
             else:
 
+                print(f"  uploading sheet:", end="")
+                upload_start = datetime.now()
                 result = smart.Sheets.import_xlsx_sheet(
                     os.path.join(_dir_in, table_src),
                     sheet_name=f"TMP_{table_name}",
                     header_row_index=0,
                     primary_column_index=0,
                 )
+                print(f"{datetime.now()-upload_start}")
 
                 import_sheet = smart.Sheets.get_sheet(result.data.id)
                 target_sheet = smart.Sheets.get_sheet(table_id)
@@ -84,31 +110,35 @@ def set_sheet():
                 for column in target_sheet.columns:
                     column_map[column.title] = column.id
 
-                rowsToDelete = [row.id for row in target_sheet.rows]
+                print(f"  deleting rows:", end="")
+                delete_start = datetime.now()
+                delete_all_rows(smart, target_sheet)
+                print(f"{datetime.now()-delete_start}")
 
-                # Batch deletion
-                batch_size = 100
-                for i in range(0, len(rowsToDelete), batch_size):
-                    batch = rowsToDelete[i : i + batch_size]
-                    response = smart.Sheets.delete_rows(table_id, batch)
+                print(f"  inserting rows:", end="")
+                insert_start = datetime.now()
 
-                rowsToTransfer = [row.id for row in import_sheet.rows]
-                if rowsToTransfer:
-                    response = smart.Sheets.move_rows(
-                        import_sheet.id,
-                        smartsheet.models.CopyOrMoveRowDirective(
-                            {
-                                "row_ids": rowsToTransfer,
-                                "to": smartsheet.models.CopyOrMoveRowDestination(
-                                    {"sheet_id": target_sheet.id}
-                                ),
-                            }
-                        ),
-                    )
+                rowsToInsert = [row.id for row in import_sheet.rows]
+                batch = 500
+                if rowsToInsert:
+                    for i in range(0, len(rowsToInsert), batch):
+                        response = smart.Sheets.move_rows(
+                            import_sheet.id,
+                            smartsheet.models.CopyOrMoveRowDirective(
+                                {
+                                    "row_ids": rowsToInsert[i : batch + i],
+                                    "to": smartsheet.models.CopyOrMoveRowDestination(
+                                        {"sheet_id": target_sheet.id}
+                                    ),
+                                }
+                            ),
+                        )
+                    print(f"{datetime.now()-insert_start}")
+                    # print(f"  insert result: {response}")
+
                 print("  done...\ndeleting tmp sheet...")
 
                 smart.Sheets.delete_sheet(import_sheet.id)  # sheet_id
-            time.sleep(30)
             print("done...")
 
 
@@ -126,3 +156,6 @@ if __name__ == "__main__":
 
     with open(_conf, "w") as conf:
         toml.dump(CONFIG, conf)
+
+end_time = datetime.now()
+print("Duration: {}".format(end_time - start_time))

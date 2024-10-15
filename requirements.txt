@@ -1,2 +1,3 @@
+openpyxl
 smartsheet-python-sdk
 toml
