@@ -1,10 +1,9 @@
 import smartsheet
-import sys
-import logging
-import os
-import openpyxl
-import toml
+import sys, os, logging
+import httpx, truststore, ssl
+import toml, openpyxl
 from datetime import datetime
+
 
 start_time = datetime.now()
 
@@ -13,29 +12,11 @@ _dir_in = os.path.join(os.path.dirname(os.path.abspath(__file__)), "in/")
 _dir_out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out/")
 _conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.toml")
 
-# The API identifies columns by Id, but it's more convenient to refer to column names. Store a map here
-column_map = {}
 
-
-# Helper function to find cell in a row
-def get_cell_by_column_name(row, column_name):
-    column_id = column_map[column_name]
-    return row.get_column(column_id)
-
-
-def delete_all_rows(smart, sheet):
-    if sheet.rows:
-        rowsToUpdate = []
-        for i, row in enumerate(sheet.rows):
-            if i > 0:
-                tmp_row = smart.models.Row()
-                tmp_row.id = row.id
-                tmp_row.parentId = sheet.rows[0].id
-                rowsToUpdate.append(tmp_row)
-
-        _ = smart.Sheets.update_rows(sheet.id, rowsToUpdate)
-
-        response = smart.Sheets.delete_rows(sheet.id, [sheet.rows[0].id])
+class APIException(Exception):
+    def __init__(self, message, response):
+        super().__init__(message)
+        self.response = response
 
 
 def get_sheet():
@@ -43,7 +24,7 @@ def get_sheet():
     smart = smartsheet.Smartsheet()
     smart.errors_as_exceptions(True)
 
-    if type(CONFIG) == dict:
+    if isinstance(CONFIG, dict):
         print("Starting ...")
         if "verbose" in CONFIG and CONFIG["verbose"] == True:
             logging.basicConfig(filename="sheet.log", level=logging.INFO)
@@ -51,111 +32,315 @@ def get_sheet():
             table_id = v["id"]
             table_src = v["src"]
             table_name = k
-            smart.Sheets.get_sheet_as_excel(table_id, _dir_out)
+            _get_sheet_as_excel(table_id, _dir_out)
 
-            workbook = openpyxl.load_workbook(
-                os.path.join(_dir_out, f"{table_name}.xlsx")
-            )
+            workbook = openpyxl.load_workbook(os.path.join(_dir_out, table_src))
             worksheet = workbook[table_name]
             worksheet.title = "AUDIT"
-            workbook.save(os.path.join(_dir_out, f"{table_name}.xlsx"))
+            workbook.save(os.path.join(_dir_out, table_src))
 
 
 def set_sheet():
     print("Starting ...")
 
-    smart: smartsheet.Smartsheet = smartsheet.Smartsheet()
-    smart.errors_as_exceptions(True)
-
-    if type(CONFIG) == dict:
-        if "verbose" in CONFIG and CONFIG["verbose"] == True:
-            logging.basicConfig(filename="sheet.log", level=logging.INFO)
+    if isinstance(CONFIG, dict):
+        target_folder_id = CONFIG["target_folder"]
         for k, v in CONFIG["tables"].items():
             table_id = v["id"]
             table_src = v["src"]
             table_name = k
             print(f"starting {table_name}...")
 
-            if len(table_id) == 0:
-                result = smart.Sheets.import_xlsx_sheet(
-                    _dir_in + table_src,
-                    sheet_name=table_name,
-                    header_row_index=0,
-                    primary_column_index=0,
-                )
-                table_id = str(result.data.id)
-
-                print(f"  {table_name}({table_id}): new table loaded")
-
-                CONFIG["tables"][k]["id"] = table_id
-            else:
-
-                print(f"  uploading sheet:", end="")
-                upload_start = datetime.now()
-                result = smart.Sheets.import_xlsx_sheet(
+            if not table_id:
+                print(f"No existing table, uploading {table_src} to {table_name}")
+                result = _import_excel(
+                    f"{table_name}",
                     os.path.join(_dir_in, table_src),
-                    sheet_name=f"TMP_{table_name}",
-                    header_row_index=0,
-                    primary_column_index=0,
+                    target_folder_id=target_folder_id,
                 )
-                print(f"{datetime.now()-upload_start}")
-
-                import_sheet = smart.Sheets.get_sheet(result.data.id)
-                target_sheet = smart.Sheets.get_sheet(table_id)
-
-                print(
-                    f"  {table_name}({table_id}): replacing {str(len(target_sheet.rows))} rows with {str(len(target_sheet.rows))} rows from {table_src}"
+                if result:
+                    table_id = str(result["result"]["id"])
+                    print(f"  {table_name}({table_id}): new table loaded")
+                    CONFIG["tables"][k]["id"] = table_id
+            else:
+                result = _import_excel(
+                    f"TMP_{table_name}", os.path.join(_dir_in, table_src)
                 )
+                if not result:
+                    continue
 
-                for column in target_sheet.columns:
-                    column_map[column.title] = column.id
+                if "message" in result and result["message"] != "SUCCESS":
+                    print(result["message"])
+                    return
 
-                print(f"  deleting rows:", end="")
-                delete_start = datetime.now()
-                delete_all_rows(smart, target_sheet)
-                print(f"{datetime.now()-delete_start}")
+                import_sheet_id = result["result"]["id"]
+                target_sheet_id = table_id
 
-                print(f"  inserting rows:", end="")
-                insert_start = datetime.now()
+                if not import_sheet_id or not target_sheet_id:
+                    continue
 
-                rowsToInsert = [row.id for row in import_sheet.rows]
-                batch = 500
-                if rowsToInsert:
-                    for i in range(0, len(rowsToInsert), batch):
-                        response = smart.Sheets.move_rows(
-                            import_sheet.id,
-                            smartsheet.models.CopyOrMoveRowDirective(
-                                {
-                                    "row_ids": rowsToInsert[i : batch + i],
-                                    "to": smartsheet.models.CopyOrMoveRowDestination(
-                                        {"sheet_id": target_sheet.id}
-                                    ),
-                                }
-                            ),
-                        )
-                    print(f"{datetime.now()-insert_start}")
-                    # print(f"  insert result: {response}")
+                # for column in target_sheet['columns']:
+                #     column_map[column.title] = column.id
 
-                print("  done...\ndeleting tmp sheet...")
-
-                smart.Sheets.delete_sheet(import_sheet.id)  # sheet_id
+                _clear_sheet(target_sheet_id)
+                _move_rows(target_sheet_id, import_sheet_id)
+                _delete_sheet(import_sheet_id)
             print("done...")
 
 
-print("Done")
+def _get_sheet(sheet_id):
+    try:
+        bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with httpx.Client(verify=ssl_context) as client:
+            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+            }
+            logging.info(f"GET: get sheet, {url},{headers}")
+            response = client.get(
+                url=url,
+                headers=headers,
+                timeout=60,
+            )
+            if response.status_code != 200:
+                raise APIException(f"GET: get sheet, {url},{headers}", response)
+            return response.json()
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+
+    return None
+
+
+def _get_sheet_as_excel(sheet_id, filepath):
+    try:
+        bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with httpx.Client(verify=ssl_context) as client:
+            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+                "Accept": "application/vnd.ms-excel",
+            }
+            response = client.get(
+                url=url,
+                headers=headers,
+                timeout=60,
+            )
+            if response.status_code != 200:
+                raise APIException(f"GET: get sheet, {url},{headers}", response)
+            with open(filepath, "wb") as f:
+                f.write(response.content)
+            print(f"File saved as {filepath}")
+            return response.json()
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+
+    return None
+
+
+def _update_sheet(sheet_id, updates):
+    try:
+        bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        sheet = _get_sheet(sheet_id)
+        if not sheet or not sheet["rows"]:
+            return
+
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with httpx.Client(verify=ssl_context) as client:
+            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}/rows"
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+                "Content-Type": "application/json",
+            }
+
+            batch = 500
+            for i in range(0, len(updates), batch):
+                response = client.put(
+                    url=url,
+                    headers=headers,
+                    json=updates[i : i + batch],
+                    timeout=60,
+                )
+                if response.status_code != 200:
+                    raise APIException(f"PUT: update rows, {url},{headers}", response)
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+
+
+def _move_rows(target_sheet_id, source_sheet_id):
+    try:
+        bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
+
+        source_sheet = _get_sheet(source_sheet_id)
+        rows = []
+        if not source_sheet:
+            return
+        for row in source_sheet["rows"]:
+            rows.append(row["id"])
+
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with httpx.Client(verify=ssl_context) as client:
+            url = f"https://api.smartsheet.com/2.0/sheets/{source_sheet_id}/rows/move"
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+                "Content-Type": "application/json",
+            }
+
+            batch = 200
+            for i in range(0, len(rows), batch):
+                response = client.post(
+                    url=url,
+                    headers=headers,
+                    json={
+                        "rowIds": rows[i : i + batch],
+                        "to": {"sheetId": target_sheet_id},
+                    },
+                    timeout=120,
+                )
+                if response.status_code != 200:
+                    raise APIException(
+                        f"POST: move all rows, {url},{headers}", response
+                    )
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+
+
+def _delete_rows(sheet_id, rows):
+    try:
+        responses = []
+        bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with httpx.Client(verify=ssl_context) as client:
+            batch_size = 100
+            for i in range(0, len(rows), batch_size):
+                batch = ",".join(str(row) for row in rows[i : i + batch_size])
+                url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}/rows?ids={batch}&ignoreRowsNotFound=true"
+                headers = {
+                    "Authorization": f"Bearer {bearer}",
+                }
+                response = client.delete(
+                    url=url,
+                    headers=headers,
+                    timeout=60,
+                )
+                responses.append(response)
+                if response.status_code != 200:
+                    raise APIException(
+                        f"DELETE: delete rows, {url},{headers}", response
+                    )
+            return responses
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+    return None
+
+
+def _delete_sheet(sheet_id):
+    bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
+    ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    with httpx.Client(verify=ssl_context) as client:
+        try:
+            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+            }
+            response = client.delete(
+                url=url,
+                headers=headers,
+                timeout=60,
+            )
+            if response.status_code != 200:
+                raise APIException(f"GET: get sheet, {url},{headers}", response)
+            return response.json()
+        except APIException as e:
+            logging.error(f"API Error: {e.response}")
+            print(f"An error occurred: {e.response}")
+
+    return None
+
+
+def _clear_sheet(sheet_id):
+    try:
+        sheet = _get_sheet(sheet_id)
+        if not sheet:
+            exit()
+
+        if not sheet["rows"]:
+            return
+
+        first_row_id = sheet["rows"][0]["id"]
+        data = [
+            {"id": row["id"], "parentId": first_row_id}
+            for i, row in enumerate(sheet["rows"])
+            if i > 0
+        ]
+        _update_sheet(sheet_id, data)
+        _delete_rows(sheet_id, [first_row_id])
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+
+
+def _import_excel(sheet_name, filepath, target_folder_id=None):
+    try:
+        bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with httpx.Client(verify=ssl_context) as client, open(filepath, "br") as xl:
+            if target_folder_id:
+                url = f"https://api.smartsheet.com/2.0/folders/{target_folder_id}/sheets/import?sheetName={sheet_name}&headerRowIndex=0&primaryColumnIndex=0"
+            else:
+                url = f"https://api.smartsheet.com/2.0/sheets/import?sheetName={sheet_name}&headerRowIndex=0&primaryColumnIndex=0"
+
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+                "Content-Disposition": "attachment",
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+            response = client.post(
+                url=url,
+                headers=headers,
+                content=xl,
+                timeout=120,
+            )
+            if response.status_code != 200:
+                raise APIException("POST: import excel", response)
+            return response.json()
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+    return None
+
+
+def test():
+    pass
+
+
 if __name__ == "__main__":
     with open(_conf, "r") as conf:
         CONFIG = toml.load(conf)
-        for k, v in CONFIG["env"].items():
-            os.environ[k] = v
+        if isinstance(CONFIG, dict):
+            for k, v in CONFIG["env"].items():
+                os.environ[k] = v
+            if CONFIG.get("verbose", False):
+                logging.basicConfig(
+                    filename="sheet.log", filemode="w", level=logging.INFO
+                )
 
-        if sys.argv[1] == "get":
-            get_sheet()
-        elif sys.argv[1] == "set":
-            set_sheet()
+            if sys.argv[1] == "get":
+                get_sheet()
+            elif sys.argv[1] == "set":
+                set_sheet()
+            elif sys.argv[1] == "test":
+                test()
 
-    with open(_conf, "w") as conf:
-        toml.dump(CONFIG, conf)
+    if isinstance(CONFIG, dict):
+        with open(_conf, "w") as conf:
+            toml.dump(CONFIG, conf)
 
 end_time = datetime.now()
 print("Duration: {}".format(end_time - start_time))

@@ -8,14 +8,14 @@ $(VENV):
 	$(PYTHON) -m venv $(VENV)
 	$(VENV)/bin/pip install --upgrade pip
 
-install: | $(VENV)
+install: requirements.txt | $(VENV)
 	$(VENV)/bin/pip install -r $(REQUIREMENTS)
 
 run: install
 	$(VENV)/bin/python ./ss_api.py set
 
 test: install
-	$(VENV)/bin/python -m unittest discover tests
+	$(VENV)/bin/python ./ss_api.py test
 
 clean:
 	rm -rf $(VENV)
