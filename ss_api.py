@@ -1,4 +1,3 @@
-import smartsheet
 import sys, os, logging
 import httpx, truststore, ssl
 import toml, openpyxl
@@ -20,9 +19,6 @@ class APIException(Exception):
 
 
 def get_sheet():
-
-    smart = smartsheet.Smartsheet()
-    smart.errors_as_exceptions(True)
 
     if isinstance(CONFIG, dict):
         print("Starting ...")
