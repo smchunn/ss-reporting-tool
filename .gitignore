@@ -1,6 +1,8 @@
 .DS_Store
+.ignore
 .venv/**
 in/**
 out/**
 sheet.log
 config.toml
+__pycache__
