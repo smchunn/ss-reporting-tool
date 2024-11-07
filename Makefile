@@ -12,10 +12,10 @@ install: requirements.txt | $(VENV)
 	$(VENV)/bin/pip install -r $(REQUIREMENTS)
 
 run: install
-	$(VENV)/bin/python ./ss_api.py set
+	$(VENV)/bin/python ./ss_uploader.py set
 
 test: install
-	$(VENV)/bin/python ./ss_api.py test
+	$(VENV)/bin/python ./ss_uploader.py test
 
 clean:
 	rm -rf $(VENV)
