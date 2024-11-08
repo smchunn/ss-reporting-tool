@@ -8,12 +8,15 @@ class APIException(Exception):
         super().__init__(message)
         self.response = response
 
-def get_sheet(sheet_id):
+
+def get_sheet(sheet_id, last_modified=None):
     try:
         bearer = os.environ["SMARTSHEET_ACCESS_TOKEN"]
         ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         with httpx.Client(verify=ssl_context) as client:
             url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
+            if last_modified:
+                url += f"?rowsModifiedSince={last_modified}"
             headers = {
                 "Authorization": f"Bearer {bearer}",
             }
