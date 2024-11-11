@@ -15,7 +15,7 @@ def list_sheets(*, access_token=None) -> None | Dict:
         bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
         ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         with httpx.Client(verify=ssl_context) as client:
-            url = f"https://api.smartsheet.com/2.0/sheets/"
+            url = f"https://api.smartsheet.com/2.0/sheets?includeAll=true"
             headers = {
                 "Authorization": f"Bearer {bearer}",
             }
