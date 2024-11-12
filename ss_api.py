@@ -2,6 +2,7 @@ import os, logging
 from typing import Dict
 import httpx, truststore, ssl
 from pathlib import Path
+from urllib.parse import urlencode
 
 
 class APIException(Exception):
@@ -15,7 +16,8 @@ def list_sheets(*, access_token=None) -> None | Dict:
         bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
         ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         with httpx.Client(verify=ssl_context) as client:
-            url = f"https://api.smartsheet.com/2.0/sheets?includeAll=true"
+            params = urlencode({"includeAll": "true"})
+            url = f"https://api.smartsheet.com/2.0/sheets?{params}"
             headers = {
                 "Authorization": f"Bearer {bearer}",
             }
@@ -42,7 +44,8 @@ def get_sheet(sheet_id, last_modified=None, *, access_token=None) -> None | Dict
         with httpx.Client(verify=ssl_context) as client:
             url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
             if last_modified:
-                url += f"?rowsModifiedSince={last_modified}"
+                params = urlencode({"rowsModifiedSince": last_modified})
+                url += f"?{params}"
             headers = {
                 "Authorization": f"Bearer {bearer}",
             }
