@@ -1,6 +1,6 @@
 VENV = .venv
 REQUIREMENTS = requirements.txt
-PYTHON = /usr/bin/env python
+PYTHON = /usr/bin/env python3
 
 .PHONY: install test clean
 
@@ -13,6 +13,9 @@ install: requirements.txt | $(VENV)
 
 run: install
 	$(VENV)/bin/python ./ss_uploader.py set
+
+get: install
+	$(VENV)/bin/python ./ss_uploader.py get
 
 test: install
 	$(VENV)/bin/python ./ss_uploader.py test

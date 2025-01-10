@@ -36,7 +36,42 @@ def list_sheets(*, access_token=None) -> None | Dict:
 
     return None
 
+#original get_sheet method:
+'''def get_sheet(sheet_id, last_modified=None, *, access_token=None) -> None | Dict:
+    try:
+        bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with httpx.Client(verify=ssl_context) as client:
+            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
+            if last_modified:
+                params = urlencode({"rowsModifiedSince": last_modified})
+                url += f"?{params}"
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+            }
+            logging.info(f"GET: get sheet, {url},{headers}")
+            print("line 53")
+            response = client.get(
+                url=url,
+                headers=headers,
+                timeout=60,
+            )
+            print("line 59")
+            if response.status_code != 200:
+                print("line 61")
+                print(url)
+                print(response.status_code)
+                raise APIException(f"GET: get sheet, {url},{headers}", response)
+            print("line 63")
+            return response.json()
+    except APIException as e:
+        print("get_sheet error")
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
 
+    return None'''
+
+#new get_sheet method to handle 404
 def get_sheet(sheet_id, last_modified=None, *, access_token=None) -> None | Dict:
     try:
         bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
@@ -55,7 +90,11 @@ def get_sheet(sheet_id, last_modified=None, *, access_token=None) -> None | Dict
                 headers=headers,
                 timeout=60,
             )
+            if response.status_code == 404:
+                # Sheet does not exist, return None
+                return None
             if response.status_code != 200:
+                # Handle other errors
                 raise APIException(f"GET: get sheet, {url},{headers}", response)
             return response.json()
     except APIException as e:
@@ -65,16 +104,23 @@ def get_sheet(sheet_id, last_modified=None, *, access_token=None) -> None | Dict
     return None
 
 
-def get_sheet_as_excel(sheet_id, filepath, *, access_token=None):
+def get_sheet_as_excel(sheet_id, filepath, *, access_token=None, folder_id=None):
     try:
         bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
         ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         with httpx.Client(verify=ssl_context) as client:
-            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
+            # Modify the URL to include the folder ID if provided
+            if folder_id:
+                url = f"https://api.smartsheet.com/2.0/folders/{folder_id}/sheets/{sheet_id}"
+            else:
+                url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
+            
             headers = {
                 "Authorization": f"Bearer {bearer}",
                 "Accept": "application/vnd.ms-excel",
             }
+            print("line 117")
+            print(url)
             response = client.get(
                 url=url,
                 headers=headers,
@@ -82,15 +128,19 @@ def get_sheet_as_excel(sheet_id, filepath, *, access_token=None):
             )
             if response.status_code != 200:
                 raise APIException(f"GET: get sheet, {url},{headers}", response)
+            print("line 125")
             with open(filepath, "wb") as f:
                 f.write(response.content)
             print(f"File saved as {filepath}")
-            return response.json()
+            if response.headers.get('Content-Type') == 'application/json':
+                return response.json()
     except APIException as e:
+        print("get_sheet_as_excel error")
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
 
     return None
+
 
 
 def update_sheet(sheet_id, updates, *, access_token=None):
@@ -157,6 +207,7 @@ def move_rows(target_sheet_id, source_sheet_id, *, access_token=None):
                         f"POST: move all rows, {url},{headers}", response
                     )
     except APIException as e:
+        print("move error")
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
 
@@ -209,6 +260,7 @@ def delete_sheet(sheet_id, *, access_token=None):
                 raise APIException(f"GET: get sheet, {url},{headers}", response)
             return response.json()
         except APIException as e:
+            print("delete error")
             logging.error(f"API Error: {e.response}")
             print(f"An error occurred: {e.response}")
 
@@ -220,6 +272,7 @@ def clear_sheet(sheet_id, *, access_token=None):
         bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
         sheet = get_sheet(sheet_id, access_token=bearer)
         if not sheet:
+            print("exit clear sheet")
             exit()
 
         if not sheet["rows"]:
@@ -234,6 +287,7 @@ def clear_sheet(sheet_id, *, access_token=None):
         update_sheet(sheet_id, data, access_token=bearer)
         delete_rows(sheet_id, [first_row_id], access_token=bearer)
     except APIException as e:
+        print("clear error")
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
 
@@ -245,8 +299,11 @@ def import_excel(sheet_name, filepath, target_folder_id=None, *, access_token=No
         with httpx.Client(verify=ssl_context) as client, open(filepath, "br") as xl:
             if target_folder_id:
                 url = f"https://api.smartsheet.com/2.0/folders/{target_folder_id}/sheets/import?sheetName={sheet_name}&headerRowIndex=0&primaryColumnIndex=0"
+                print("folder")
+                print(target_folder_id)
             else:
                 url = f"https://api.smartsheet.com/2.0/sheets/import?sheetName={sheet_name}&headerRowIndex=0&primaryColumnIndex=0"
+                print(target_folder_id)
 
             headers = {
                 "Authorization": f"Bearer {bearer}",
@@ -261,14 +318,17 @@ def import_excel(sheet_name, filepath, target_folder_id=None, *, access_token=No
             )
             if response.status_code != 200:
                 raise APIException("POST: import excel", response)
+            print(url)
             return response.json()
     except APIException as e:
+        
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
+    
     return None
 
 
-def atatch_file(sheet_id, filepath, *, access_token=None):
+def attach_file(sheet_id, filepath, *, access_token=None):
     try:
         bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
         ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -287,6 +347,7 @@ def atatch_file(sheet_id, filepath, *, access_token=None):
                 content=xl,
                 timeout=60,
             )
+            print(url)
             if response.status_code != 200:
                 raise APIException(f"POST: attach file, {url},{headers}", response)
             return response

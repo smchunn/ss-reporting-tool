@@ -13,21 +13,28 @@ _conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.toml")
 
 
 def get_sheet():
-
+    print("get_sheet")
     if isinstance(CONFIG, dict):
         print("Starting ...")
         if "verbose" in CONFIG and CONFIG["verbose"] == True:
             logging.basicConfig(filename="sheet.log", level=logging.INFO)
+        
+        # Retrieve the folder_id from the CONFIG
+        folder_id = CONFIG.get('env', {}).get('target_folder')
+
         for k, v in CONFIG["tables"].items():
             table_id = v["id"]
             table_src = v["src"]
             table_name = k
-            ss_api.get_sheet_as_excel(table_id, _dir_out)
+            # Pass the folder_id to the get_sheet_as_excel function
+            ss_api.get_sheet_as_excel(
+                table_id, 
+                os.path.join(_dir_out, f'{table_name}.xlsx'), 
+                folder_id=folder_id
+            )
 
-            workbook = openpyxl.load_workbook(os.path.join(_dir_out, table_src))
-            worksheet = workbook[table_name]
-            worksheet.title = "AUDIT"
-            workbook.save(os.path.join(_dir_out, table_src))
+
+            
 
 
 def attach_sheet():
@@ -40,16 +47,21 @@ def attach_sheet():
             table_id = v["id"]
             table_src = v["src"]
             table_name = k
-            ss_api.atatch_file(table_id, os.path.join(_dir_in, table_src))
+            ss_api.attach_file(table_id, os.path.join(_dir_in, table_src))
 
 
 def set_sheet():
     print("Starting ...")
 
     if isinstance(CONFIG, dict):
-        target_folder_id = CONFIG["target_folder"]
+        target_folder_id = CONFIG.get('env', {}).get('target_folder')
+        print("set_sheet main")
+        print(target_folder_id)
         for k, v in CONFIG["tables"].items():
             table_id = v["id"]
+            print("for loop")
+            print(table_id)
+
             table_src = v["src"]
             table_name = k
             print(f"starting {table_name}...")
@@ -66,8 +78,12 @@ def set_sheet():
                     print(f"  {table_name}({table_id}): new table loaded")
                     CONFIG["tables"][k]["id"] = table_id
             else:
+                print("not table id 71")
+                print(target_folder_id)
                 result = ss_api.import_excel(
-                    f"TMP_{table_name}", os.path.join(_dir_in, table_src)
+                    f"{table_name}",
+                    os.path.join(_dir_in, table_src),
+                    target_folder_id=target_folder_id,
                 )
                 if not result:
                     continue
@@ -81,7 +97,7 @@ def set_sheet():
 
                 if not import_sheet_id or not target_sheet_id:
                     continue
-
+                print("line 87")
                 ss_api.clear_sheet(target_sheet_id)
                 ss_api.move_rows(target_sheet_id, import_sheet_id)
                 ss_api.delete_sheet(import_sheet_id)
@@ -91,6 +107,7 @@ def set_sheet():
 if __name__ == "__main__":
     with open(_conf, "r") as conf:
         CONFIG = toml.load(conf)
+        print("loaded config", CONFIG)
         if isinstance(CONFIG, dict):
             for k, v in CONFIG["env"].items():
                 os.environ[k] = v
