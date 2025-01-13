@@ -36,41 +36,6 @@ def list_sheets(*, access_token=None) -> None | Dict:
 
     return None
 
-#original get_sheet method:
-'''def get_sheet(sheet_id, last_modified=None, *, access_token=None) -> None | Dict:
-    try:
-        bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
-        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        with httpx.Client(verify=ssl_context) as client:
-            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}"
-            if last_modified:
-                params = urlencode({"rowsModifiedSince": last_modified})
-                url += f"?{params}"
-            headers = {
-                "Authorization": f"Bearer {bearer}",
-            }
-            logging.info(f"GET: get sheet, {url},{headers}")
-            print("line 53")
-            response = client.get(
-                url=url,
-                headers=headers,
-                timeout=60,
-            )
-            print("line 59")
-            if response.status_code != 200:
-                print("line 61")
-                print(url)
-                print(response.status_code)
-                raise APIException(f"GET: get sheet, {url},{headers}", response)
-            print("line 63")
-            return response.json()
-    except APIException as e:
-        print("get_sheet error")
-        logging.error(f"API Error: {e.response}")
-        print(f"An error occurred: {e.response}")
-
-    return None'''
-
 #new get_sheet method to handle 404
 def get_sheet(sheet_id, last_modified=None, *, access_token=None) -> None | Dict:
     try:
