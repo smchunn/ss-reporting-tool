@@ -7,7 +7,7 @@ import ss_api
 start_time = datetime.now()
 
 CONFIG = None
-_dir_in = os.path.join(os.path.dirname(os.path.abspath(__file__)), "in/")
+_dir_in = os.path.join(os.path.dirname(os.path.abspath(__file__)), "split_excel/Effectivity_Reports_Split/")
 _dir_out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out/")
 _conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.toml")
 
