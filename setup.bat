@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set VENV=.venv
+set VENV=.winvenv
 set REQUIREMENTS=requirements.txt
 set PYTHON=python
 
