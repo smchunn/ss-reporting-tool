@@ -84,8 +84,7 @@ def get_sheet_as_excel(sheet_id, filepath, *, access_token=None, folder_id=None)
                 "Authorization": f"Bearer {bearer}",
                 "Accept": "application/vnd.ms-excel",
             }
-            print("line 117")
-            print(url)
+            
             response = client.get(
                 url=url,
                 headers=headers,
@@ -93,14 +92,14 @@ def get_sheet_as_excel(sheet_id, filepath, *, access_token=None, folder_id=None)
             )
             if response.status_code != 200:
                 raise APIException(f"GET: get sheet, {url},{headers}", response)
-            print("line 125")
+            
             with open(filepath, "wb") as f:
                 f.write(response.content)
             print(f"File saved as {filepath}")
             if response.headers.get('Content-Type') == 'application/json':
                 return response.json()
     except APIException as e:
-        print("get_sheet_as_excel error")
+        
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
 
@@ -172,7 +171,7 @@ def move_rows(target_sheet_id, source_sheet_id, *, access_token=None):
                         f"POST: move all rows, {url},{headers}", response
                     )
     except APIException as e:
-        print("move error")
+        
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
 
@@ -225,7 +224,7 @@ def delete_sheet(sheet_id, *, access_token=None):
                 raise APIException(f"GET: get sheet, {url},{headers}", response)
             return response.json()
         except APIException as e:
-            print("delete error")
+            
             logging.error(f"API Error: {e.response}")
             print(f"An error occurred: {e.response}")
 
@@ -237,7 +236,7 @@ def clear_sheet(sheet_id, *, access_token=None):
         bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
         sheet = get_sheet(sheet_id, access_token=bearer)
         if not sheet:
-            print("exit clear sheet")
+            
             exit()
 
         if not sheet["rows"]:
@@ -252,7 +251,7 @@ def clear_sheet(sheet_id, *, access_token=None):
         update_sheet(sheet_id, data, access_token=bearer)
         delete_rows(sheet_id, [first_row_id], access_token=bearer)
     except APIException as e:
-        print("clear error")
+        
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
 
@@ -264,11 +263,10 @@ def import_excel(sheet_name, filepath, target_folder_id=None, *, access_token=No
         with httpx.Client(verify=ssl_context) as client, open(filepath, "br") as xl:
             if target_folder_id:
                 url = f"https://api.smartsheet.com/2.0/folders/{target_folder_id}/sheets/import?sheetName={sheet_name}&headerRowIndex=0&primaryColumnIndex=0"
-                print("folder")
-                print(target_folder_id)
+                
             else:
                 url = f"https://api.smartsheet.com/2.0/sheets/import?sheetName={sheet_name}&headerRowIndex=0&primaryColumnIndex=0"
-                print(target_folder_id)
+                
 
             headers = {
                 "Authorization": f"Bearer {bearer}",
@@ -312,7 +310,7 @@ def attach_file(sheet_id, filepath, *, access_token=None):
                 content=xl,
                 timeout=60,
             )
-            print(url)
+            
             if response.status_code != 200:
                 raise APIException(f"POST: attach file, {url},{headers}", response)
             return response
