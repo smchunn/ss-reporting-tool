@@ -25,3 +25,5 @@ test: install
 
 clean:
 	rm -rf $(VENV)
+	rm -f Effectivity_Reports_Mod/*
+	rm -f Effectivity_Reports_Split/*
