@@ -12,7 +12,9 @@ install: requirements.txt | $(VENV)
 	$(VENV)/bin/pip install -r $(REQUIREMENTS)
 
 run: install
+	$(VENV)/bin/python ./split_excel.py
 	$(VENV)/bin/python ./create_config.py
+	$(VENV)/bin/python ./mod_excel.py
 	$(VENV)/bin/python ./ss_uploader.py set
 
 get: install
