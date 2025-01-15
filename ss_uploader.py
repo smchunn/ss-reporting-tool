@@ -78,8 +78,7 @@ def set_sheet():
                     print(f"  {table_name}({table_id}): new table loaded")
                     CONFIG["tables"][k]["id"] = table_id
             else:
-                print("not table id 71")
-                print(target_folder_id)
+                
                 result = ss_api.import_excel(
                     f"{table_name}",
                     os.path.join(_dir_in, table_src),
