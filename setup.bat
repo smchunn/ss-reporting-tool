@@ -1,52 +1,41 @@
 @echo off
 setlocal
 
-set VENV=.winvenv
+set VENV=.venv
 set REQUIREMENTS=requirements.txt
 set PYTHON=python
 
-if "%1" == "install" goto install
-if "%1" == "run" goto run
-if "%1" == "get" goto get
-if "%1" == "test" goto test
-if "%1" == "clean" goto clean
-goto end
-
-:venv
 if not exist %VENV% (
     %PYTHON% -m venv %VENV%
     call %VENV%\Scripts\pip install --upgrade pip
 )
-goto :eof
 
 :install
-call :venv
 if exist %REQUIREMENTS% (
     call %VENV%\Scripts\pip install -r %REQUIREMENTS%
+) else (
+    echo Requirements file not found!
+    exit /b 1
 )
-goto :eof
 
 :run
 call :install
+call %VENV%\Scripts\python create_config.py
 call %VENV%\Scripts\python ss_uploader.py set
-goto :eof
+exit /b
 
 :get
 call :install
 call %VENV%\Scripts\python ss_uploader.py get
-goto :eof
+exit /b
 
 :test
 call :install
 call %VENV%\Scripts\python ss_uploader.py test
-goto :eof
+exit /b
 
 :clean
 if exist %VENV% (
-    rmdir /S /Q %VENV%
+    rmdir /s /q %VENV%
 )
-goto :eof
-
-:end
-echo Usage: %0 ^(install^|run^|get^|test^|clean^)
-endlocal
+exit /b
