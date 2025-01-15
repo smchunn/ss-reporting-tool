@@ -2,7 +2,12 @@ import os
 
 # Define the paths
 config_path = 'config.toml'
-excel_folder_path = os.path.join('split_excel', 'Effectivity_Reports_Split')
+
+# Get the current directory where the script is located
+current_directory = os.path.dirname(os.path.abspath(__file__))
+
+# Define the path to the Excel folder in the current directory
+excel_folder_path = os.path.join(current_directory, 'Effectivity_Reports_Split')
 
 # Read the existing config.toml content
 with open(config_path, 'r') as file:
