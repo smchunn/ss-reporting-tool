@@ -19,12 +19,15 @@ for filename in os.listdir(input_dir):
         file_path = os.path.join(input_dir, filename)
         df = pd.read_excel(file_path)
         
-        # Create new columns with default values
-        df.insert(0, 'Status', 'Initial')
-        df.insert(1, 'Assignment', '')
-        df.insert(2, 'Notes', '')
-        df.insert(3, 'Created Date', today_date)
-        df.insert(4, 'Modified Date', today_date)
+        # Delete the first column
+        df = df.iloc[:, 1:]  # Keep all columns except the first one
+        
+        # Insert new columns after the first column (now the original second column)
+        df.insert(1, 'Status', 'Initial')  # Insert at index 1
+        df.insert(2, 'Assignment', '')    # Insert at index 2
+        df.insert(3, 'Notes', '')         # Insert at index 3
+        df.insert(4, 'Created Date', today_date)  # Insert at index 4
+        df.insert(5, 'Modified Date', today_date)  # Insert at index 5
         
         # Save the modified DataFrame to a new Excel file in the output directory
         output_file_path = os.path.join(output_dir, filename)
