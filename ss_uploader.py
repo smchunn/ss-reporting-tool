@@ -13,7 +13,6 @@ _conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.toml")
 
 
 def get_sheet():
-    
     if isinstance(CONFIG, dict):
         print("Starting ...")
         if "verbose" in CONFIG and CONFIG["verbose"] == True:
@@ -33,8 +32,8 @@ def get_sheet():
                 folder_id=folder_id
             )
 
-def attach_sheet():
 
+def attach_sheet():
     if isinstance(CONFIG, dict):
         print("Starting ...")
         if "verbose" in CONFIG and CONFIG["verbose"] == True:
@@ -68,7 +67,6 @@ def set_sheet():
                     print(f"  {table_name}({table_id}): new table loaded")
                     CONFIG["tables"][k]["id"] = table_id
             else:
-                
                 result = ss_api.import_excel(
                     f"{table_name}",
                     os.path.join(_dir_in, table_src),
@@ -93,6 +91,21 @@ def set_sheet():
             print("done...")
 
 
+def update_sheet():
+    """
+    Updates the columns in the specified sheets to set "Status" as a dropdown
+    and "Created Date" and "Modified Date" as date columns.
+    """
+    print("Updating columns ...")
+    if isinstance(CONFIG, dict):
+        for k, v in CONFIG["tables"].items():
+            table_id = v["id"]
+            table_name = k
+            print(f"Updating columns for table: {table_name} (ID: {table_id})")
+            ss_api.update_columns(sheet_id=table_id)
+            print(f"Columns updated for table: {table_name}")
+
+
 if __name__ == "__main__":
     with open(_conf, "r") as conf:
         CONFIG = toml.load(conf)
@@ -105,14 +118,15 @@ if __name__ == "__main__":
                     filename="sheet.log", filemode="w", level=logging.INFO
                 )
 
+            # Check the command-line argument and call the appropriate function
             if sys.argv[1] == "get":
                 get_sheet()
             elif sys.argv[1] == "set":
                 set_sheet()
             elif sys.argv[1] == "attach":
-                set_sheet()
-            elif sys.argv[1] == "test":
                 attach_sheet()
+            elif sys.argv[1] == "update":
+                update_sheet()
 
     if isinstance(CONFIG, dict):
         with open(_conf, "w") as conf:

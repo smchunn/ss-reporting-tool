@@ -16,6 +16,7 @@ run: install
 	$(VENV)/bin/python ./create_config.py
 	$(VENV)/bin/python ./mod_excel.py
 	$(VENV)/bin/python ./ss_uploader.py set
+	$(VENV)/bin/python ./ss_uploader.py update
 
 get: install
 	$(VENV)/bin/python ./ss_uploader.py get

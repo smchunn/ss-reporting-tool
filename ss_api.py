@@ -281,7 +281,7 @@ def import_excel(sheet_name, filepath, target_folder_id=None, *, access_token=No
             )
             if response.status_code != 200:
                 raise APIException("POST: import excel", response)
-            print(url)
+            
             return response.json()
     except APIException as e:
         
@@ -318,6 +318,66 @@ def attach_file(sheet_id, filepath, *, access_token=None):
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
     return None
+
+
+def update_columns(sheet_id, *, access_token=None):
+    try:
+        bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+        # Define the column updates
+        column_updates = [
+            {
+                "title": "Status",
+                "type": "PICKLIST",
+                "options": ["Initial", "In-Work", "Issue", "Updated", "Re-Opened", "Validated", "Complete"]
+            },
+            {
+                "title": "Created Date",
+                "type": "DATE"
+            },
+            {
+                "title": "Modified Date",
+                "type": "DATE"
+            }
+        ]
+
+        with httpx.Client(verify=ssl_context) as client:
+            # Get the current columns to find their IDs
+            url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}/columns"
+            headers = {
+                "Authorization": f"Bearer {bearer}"
+            }
+            response = client.get(url=url, headers=headers, timeout=60)
+            if response.status_code != 200:
+                raise APIException(f"GET: get columns, {url},{headers}", response)
+            
+            columns = response.json()
+
+            # Prepare the column updates with correct IDs
+            updates = []
+            for col in columns:
+                for update in column_updates:
+                    if col["title"] == update["title"]:
+                        update["id"] = col["id"]
+                        updates.append(update)
+                        break
+
+            # Update the columns
+            for update in updates:
+                column_id = update.pop("id")
+                url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}/columns/{column_id}"
+                response = client.put(url=url, headers=headers, json=update, timeout=60)
+                if response.status_code != 200:
+                    raise APIException(f"PUT: update column, {url},{headers}", response)
+
+            print("Columns updated successfully.")
+
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+
+
 
 
 def test():
