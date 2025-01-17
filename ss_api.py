@@ -348,26 +348,34 @@ def update_columns(sheet_id, *, access_token=None):
             headers = {
                 "Authorization": f"Bearer {bearer}"
             }
-            response = client.get(url=url, headers=headers, timeout=60)
+            response = client.get(url=url, headers=headers, timeout=180)
             if response.status_code != 200:
                 raise APIException(f"GET: get columns, {url},{headers}", response)
             
             columns = response.json()
+            
+            # Prepare the column updates with correct IDs
+            if 'data' in columns:
+                columns = columns['data']
+            else:
+                logging.error("Unexpected response structure: %s", columns)
+                raise ValueError("Unexpected response structure from Smartsheet API.")
 
             # Prepare the column updates with correct IDs
             updates = []
             for col in columns:
-                for update in column_updates:
-                    if col["title"] == update["title"]:
-                        update["id"] = col["id"]
-                        updates.append(update)
-                        break
+                if isinstance(col, dict) and "title" in col:
+                    for update in column_updates:
+                        if col["title"] == update["title"]:
+                            update["id"] = col["id"]
+                            updates.append(update)
+                            break
 
             # Update the columns
             for update in updates:
                 column_id = update.pop("id")
                 url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}/columns/{column_id}"
-                response = client.put(url=url, headers=headers, json=update, timeout=60)
+                response = client.put(url=url, headers=headers, json=update, timeout=180)
                 if response.status_code != 200:
                     raise APIException(f"PUT: update column, {url},{headers}", response)
 
