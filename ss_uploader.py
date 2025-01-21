@@ -48,7 +48,9 @@ def attach_sheet():
 def set_sheet():
     print("Starting ...")
     if isinstance(CONFIG, dict):
+        target_workspace_id = CONFIG.get('env', {}).get('target_workspace')
         target_folder_id = CONFIG.get('env', {}).get('target_folder')
+
         for k, v in CONFIG["tables"].items():
             table_id = v["id"]
             table_src = v["src"]
@@ -57,20 +59,20 @@ def set_sheet():
 
             if not table_id:
                 print(f"No existing table, uploading {table_src} to {table_name}")
-                result = ss_api.import_excel(
-                    f"{table_name}",
-                    os.path.join(_dir_in, table_src),
-                    target_folder_id=target_folder_id,
+                result = ss_api.import_xlsx_sheet(
+                    folder_id=target_folder_id if target_folder_id else None,
+                    filepath=os.path.join(_dir_in, table_src),
+                    sheet_name=table_name
                 )
                 if result:
                     table_id = str(result["result"]["id"])
                     print(f"  {table_name}({table_id}): new table loaded")
                     CONFIG["tables"][k]["id"] = table_id
             else:
-                result = ss_api.import_excel(
-                    f"{table_name}",
-                    os.path.join(_dir_in, table_src),
-                    target_folder_id=target_folder_id,
+                result = ss_api.import_xlsx_sheet(
+                    folder_id=target_folder_id if target_folder_id else None,
+                    filepath=os.path.join(_dir_in, table_src),
+                    sheet_name=table_name
                 )
                 if not result:
                     continue
@@ -84,11 +86,12 @@ def set_sheet():
 
                 if not import_sheet_id or not target_sheet_id:
                     continue
-        
+
                 ss_api.clear_sheet(target_sheet_id)
                 ss_api.move_rows(target_sheet_id, import_sheet_id)
                 ss_api.delete_sheet(import_sheet_id)
             print("done...")
+
 
 
 def update_sheet():
