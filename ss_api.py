@@ -380,6 +380,59 @@ def update_columns(sheet_id, *, access_token=None):
         logging.error(f"API Error: {e.response}")
         print(f"An error occurred: {e.response}")
 
+def create_blank_summary_sheet_in_folder(folder_id, *, access_token=None):
+    try:
+        # Get the access token
+        bearer = access_token or os.environ["SMARTSHEET_ACCESS_TOKEN"]
+        ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+        # Define the sheet specification
+        sheet_spec = {
+            "name": "Summary",
+            "columns": [
+                {
+                    "title": "AC",
+                    "primary": True,
+                    "type": "TEXT_NUMBER"
+                }, {
+                    "title": "ADD_EFFECTIVITY",
+                    "primary": False,
+                    "type": "TEXT_NUMBER"
+                }, {
+                    "title": "VALIDATE_EFFECTIVITY",
+                    "primary": False,
+                    "type": "TEXT_NUMBER"
+                }, {
+                    "title": "TOTAL",
+                    "primary": False,
+                    "type": "TEXT_NUMBER"
+                }
+            ]
+        }
+
+        with httpx.Client(verify=ssl_context) as client:
+            # Construct the URL for creating a sheet in a folder
+            url = f"https://api.smartsheet.com/2.0/folders/{folder_id}/sheets"
+            headers = {
+                "Authorization": f"Bearer {bearer}",
+                "Content-Type": "application/json",
+            }
+
+            # Make the POST request to create the sheet
+            response = client.post(url=url, headers=headers, json=sheet_spec, timeout=60)
+
+            if response.status_code != 200:
+                raise APIException(f"POST: create blank summary sheet in folder, {url}, {headers}", response)
+
+            print("Blank summary sheet created successfully in folder.")
+            return response.json()
+
+    except APIException as e:
+        logging.error(f"API Error: {e.response}")
+        print(f"An error occurred: {e.response}")
+
+    return None
+
 
 def test():
     pass

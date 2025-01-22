@@ -108,6 +108,14 @@ def update_sheet():
             ss_api.update_columns(sheet_id=table_id)
             print(f"Columns updated for table: {table_name}")
 
+def make_summary():
+    print("Creating blank summary sheet in folder...")
+    if isinstance(CONFIG, dict):
+        folder_id = CONFIG.get('env', {}).get('target_folder')
+        ss_api.create_blank_summary_sheet_in_folder(folder_id)
+        print("Blank summary sheet created in folder.")
+
+
 
 if __name__ == "__main__":
     with open(_conf, "r") as conf:
@@ -130,10 +138,14 @@ if __name__ == "__main__":
                 attach_sheet()
             elif sys.argv[1] == "update":
                 update_sheet()
+            elif sys.argv[1] == "summary":
+                make_summary()
+            
 
     if isinstance(CONFIG, dict):
         with open(_conf, "w") as conf:
             toml.dump(CONFIG, conf)
+
 
 end_time = datetime.now()
 print("Duration: {}".format(end_time - start_time))
