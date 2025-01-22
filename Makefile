@@ -18,6 +18,10 @@ run: install
 	$(VENV)/bin/python ./ss_uploader.py set
 	$(VENV)/bin/python ./ss_uploader.py update
 
+run_simple: install
+	$(VENV)/bin/python ./ss_uploader.py set
+	$(VENV)/bin/python ./ss_uploader.py update
+
 config: install
 	$(VENV)/bin/python ./create_config.py
 	
