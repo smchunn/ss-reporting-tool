@@ -1,26 +1,12 @@
+verbose = true
+
 [env]
-SMARTSHEET_ACCESS_TOKEN = ""
+SMARTSHEET_ACCESS_TOKEN = "8MFPRT7WqCkwCCZQxbfiiZxaHpCbY6ieostvu"
+target_workspace = "1468693428593860"
+target_folder = "4162732984672044"
 
-[tables.TF-FXA]
+[tables.EFFECTIVITY_REPORT_STANDARD_A320_20250115_419]
 id = ""
-src = "TF-FXA.xlsx"
+src = "EFFECTIVITY_REPORT_STANDARD_A320_20250115_419.xlsx"
 
-[tables.TF-FXE]
-id = ""
-src = "TF-FXE.xlsx"
 
-[tables.TF-FXG]
-id = ""
-src = "TF-FXG.xlsx"
-
-[tables.TF-FXH]
-id = ""
-src = "TF-FXH.xlsx"
-
-[tables.TF-FXI]
-id = ""
-src = "TF-FXI.xlsx"
-
-[tables.TF-FXK]
-id = ""
-src = "TF-FXK.xlsx"
