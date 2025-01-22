@@ -4,4 +4,5 @@
 in/**
 out/**
 sheet.log
+config.toml
 __pycache__
