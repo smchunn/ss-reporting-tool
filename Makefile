@@ -22,6 +22,11 @@ run_simple: install
 	$(VENV)/bin/python ./ss_uploader.py set
 	$(VENV)/bin/python ./ss_uploader.py update
 
+setup: install
+	$(VENV)/bin/python ./split_excel.py
+	$(VENV)/bin/python ./create_config.py
+	$(VENV)/bin/python ./mod_excel.py
+
 config: install
 	$(VENV)/bin/python ./create_config.py
 	
