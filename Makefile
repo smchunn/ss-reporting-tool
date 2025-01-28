@@ -13,8 +13,9 @@ install: requirements.txt | $(VENV)
 
 run: install
 	$(VENV)/bin/python ./split_excel.py
-	$(VENV)/bin/python ./create_config.py
 	$(VENV)/bin/python ./mod_excel.py
+	$(VENV)/bin/python ./create_summary.py
+	$(VENV)/bin/python ./create_config.py
 	$(VENV)/bin/python ./ss_uploader.py set
 	$(VENV)/bin/python ./ss_uploader.py update
 
@@ -34,7 +35,7 @@ update: install
 	$(VENV)/bin/python ./ss_uploader.py update
 
 summary: install
-	$(VENV)/bin/python ./ss_uploader.py summary
+	$(VENV)/bin/python ./create_summary.py
 
 get: install
 	$(VENV)/bin/python ./ss_uploader.py get
