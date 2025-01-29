@@ -7,7 +7,7 @@ config_path = 'config.toml'
 current_directory = os.path.dirname(os.path.abspath(__file__))
 
 # Define the path to the Excel folder in the current directory
-excel_folder_path = os.path.join(current_directory, 'Effectivity_Reports_Split')
+excel_folder_path = os.path.join(current_directory, 'Effectivity_Reports_Mod')
 
 # Read the existing config.toml content
 with open(config_path, 'r') as file:

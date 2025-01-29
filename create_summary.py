@@ -19,15 +19,18 @@ original_file_path = os.path.join(input_folder, original_file_name)
 # Load the original Excel file
 df = pd.read_excel(original_file_path)
 
+# Filter out rows where the status is 'Complete'
+open_parts_df = df[df['Status'] != 'Complete']
+
 # Ensure the output folder exists
 os.makedirs(output_folder, exist_ok=True)
 
-# First Summary: Summary by Action
+# First Summary: Summary by Action (only for open parts)
 summary_df = pd.DataFrame()
-summary_df['AC'] = df['AC'].unique()
+summary_df['AC'] = open_parts_df['AC'].unique()
 
 def count_action(ac_value, action):
-    return len(df[(df['AC'] == ac_value) & (df['PROPOSED_ACTION'] == action)])
+    return len(open_parts_df[(open_parts_df['AC'] == ac_value) & (open_parts_df['PROPOSED_ACTION'] == action)])
 
 summary_df['ADD_EFFECTIVITY'] = summary_df['AC'].apply(lambda x: count_action(x, 'ADD_EFFECTIVITY'))
 summary_df['VALIDATE_EFFECTIVITY'] = summary_df['AC'].apply(lambda x: count_action(x, 'VALIDATE_EFFECTIVITY'))
