@@ -343,7 +343,7 @@ def update_columns(sheet_id, *, access_token=None):
             headers = {
                 "Authorization": f"Bearer {bearer}"
             }
-            response = client.get(url=url, headers=headers, timeout=180)
+            response = client.get(url=url, headers=headers, timeout=240)
             if response.status_code != 200:
                 raise APIException(f"GET: get columns, {url},{headers}", response)
             
@@ -377,7 +377,7 @@ def update_columns(sheet_id, *, access_token=None):
             for update in updates:
                 column_id = update.pop("id")
                 url = f"https://api.smartsheet.com/2.0/sheets/{sheet_id}/columns/{column_id}"
-                response = client.put(url=url, headers=headers, json=update, timeout=180)
+                response = client.put(url=url, headers=headers, json=update, timeout=240)
                 if response.status_code != 200:
                     raise APIException(f"PUT: update column, {url},{headers}", response)
             

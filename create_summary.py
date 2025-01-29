@@ -19,6 +19,9 @@ original_file_path = os.path.join(input_folder, original_file_name)
 # Load the original Excel file
 df = pd.read_excel(original_file_path)
 
+# Update the status to 'Complete' if 'feedback' column has a non-blank value
+df.loc[df['FEEDBACK'].notna() & (df['FEEDBACK'] != ''), 'Status'] = 'Complete'
+
 # Filter out rows where the status is 'Complete'
 open_parts_df = df[df['Status'] != 'Complete']
 
@@ -32,28 +35,28 @@ summary_df['AC'] = open_parts_df['AC'].unique()
 def count_action(ac_value, action):
     return len(open_parts_df[(open_parts_df['AC'] == ac_value) & (open_parts_df['PROPOSED_ACTION'] == action)])
 
-summary_df['ADD_EFFECTIVITY'] = summary_df['AC'].apply(lambda x: count_action(x, 'ADD_EFFECTIVITY'))
-summary_df['VALIDATE_EFFECTIVITY'] = summary_df['AC'].apply(lambda x: count_action(x, 'VALIDATE_EFFECTIVITY'))
-summary_df['TOTAL'] = summary_df['ADD_EFFECTIVITY'] + summary_df['VALIDATE_EFFECTIVITY']
+summary_df['Add Effectivity'] = summary_df['AC'].apply(lambda x: count_action(x, 'ADD_EFFECTIVITY'))
+summary_df['Validate Effectivity'] = summary_df['AC'].apply(lambda x: count_action(x, 'VALIDATE_EFFECTIVITY'))
+summary_df['TOTAL'] = summary_df['Add Effectivity'] + summary_df['Validate Effectivity']
 
-summary_file_path = os.path.join(output_folder, original_file_name.split('.')[0] + '_summary_by_action.xlsx')
+summary_file_path = os.path.join(output_folder, original_file_name.split('.')[0] + '_action.xlsx')
 summary_df.to_excel(summary_file_path, index=False)
 
 # Second Summary: Summary by Status
 status_categories = ['Initial', 'In-Work', 'Issue', 'Updated', 'Re-Opened', 'Validated', 'Complete']
 status_summary_df = df.groupby(['AC', 'Status']).size().unstack(fill_value=0).reindex(columns=status_categories, fill_value=0).reset_index()
 
-status_summary_file_path = os.path.join(output_folder, original_file_name.split('.')[0] + '_summary_by_status.xlsx')
+status_summary_file_path = os.path.join(output_folder, original_file_name.split('.')[0] + '_status.xlsx')
 status_summary_df.to_excel(status_summary_file_path, index=False)
 
 # Totals Sheet
-total_validate = summary_df['VALIDATE_EFFECTIVITY'].sum()
-total_add = summary_df['ADD_EFFECTIVITY'].sum()
+total_validate = summary_df['Validate Effectivity'].sum()
+total_add = summary_df['Add Effectivity'].sum()
 total_status = df['Status'].value_counts().reindex(status_categories, fill_value=0).to_dict()
 
 totals_df = pd.DataFrame({
-    'Total Validate': [total_validate],
-    'Total Add': [total_add]
+    'Add Effectivity': [total_add],
+    'Validate Effectivity': [total_validate]
 })
 
 for status in status_categories:
