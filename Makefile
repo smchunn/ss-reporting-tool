@@ -28,6 +28,9 @@ setup: install
 	$(VENV)/bin/python ./create_config.py
 	$(VENV)/bin/python ./mod_excel.py
 
+dupes: install
+	$(VENV)/bin/python ./duplicate_parts.py
+
 config: install
 	$(VENV)/bin/python ./create_config.py
 	
