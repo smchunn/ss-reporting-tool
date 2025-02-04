@@ -2,7 +2,7 @@ import os
 import pandas as pd
 
 # Define paths
-input_folder = 'Effectivity Reports'
+input_folder = 'Effectivity Reports Engine'
 output_folder = 'Effectivity_Reports_Split'
 
 # Create the output directory if it doesn't exist

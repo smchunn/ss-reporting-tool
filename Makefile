@@ -19,14 +19,30 @@ run: install
 	$(VENV)/bin/python ./ss_uploader.py set
 	$(VENV)/bin/python ./ss_uploader.py update
 
+run_engine: install
+	$(VENV)/bin/python ./split_excel.py
+	$(VENV)/bin/python ./mod_excel.py
+	$(VENV)/bin/python ./create_summary_engine.py
+	$(VENV)/bin/python ./create_config.py
+	$(VENV)/bin/python ./ss_uploader.py set
+	$(VENV)/bin/python ./ss_uploader.py update
+
+run_reports: install
+	$(VENV)/bin/python ./split_excel.py
+	$(VENV)/bin/python ./mod_excel.py
+	$(VENV)/bin/python ./create_config.py
+	$(VENV)/bin/python ./ss_uploader.py set
+	$(VENV)/bin/python ./ss_uploader.py update
+
 run_simple: install
 	$(VENV)/bin/python ./ss_uploader.py set
 	$(VENV)/bin/python ./ss_uploader.py update
 
 setup: install
 	$(VENV)/bin/python ./split_excel.py
-	$(VENV)/bin/python ./create_config.py
 	$(VENV)/bin/python ./mod_excel.py
+	$(VENV)/bin/python ./create_summary_engine.py
+	$(VENV)/bin/python ./create_config.py
 
 dupes: install
 	$(VENV)/bin/python ./duplicate_parts.py

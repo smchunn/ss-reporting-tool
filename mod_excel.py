@@ -30,7 +30,7 @@ for filename in os.listdir(input_dir):
         df.insert(5, 'Modified Date', today_date)  # Insert at index 5
         
         # Update 'Status' to 'Complete' if 'FEEDBACK' column is not blank
-        df.loc[df['FEEDBACK'].notna() & (df['FEEDBACK'] != ''), 'Status'] = 'Complete'
+        df.loc[df['FEEDBACK'].notna() & (df['FEEDBACK'] != ''), 'Status'] = 'Validated'
         
         # Save the modified DataFrame to a new Excel file in the output directory
         output_file_path = os.path.join(output_dir, filename)
