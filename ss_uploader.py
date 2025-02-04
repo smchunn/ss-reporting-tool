@@ -7,7 +7,9 @@ import ss_api
 start_time = datetime.now()
 
 CONFIG = None
-_dir_in = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Effectivity_Reports_Mod/")
+_dir_in = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "Effectivity_Reports_Mod/"
+)
 _dir_out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out/")
 _conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.toml")
 
@@ -17,8 +19,6 @@ def get_sheet():
         print("Starting ...")
         if "verbose" in CONFIG and CONFIG["verbose"] == True:
             logging.basicConfig(filename="sheet.log", level=logging.INFO)
-        
-       
 
         for k, v in CONFIG["tables"].items():
             table_id = v["id"]
@@ -26,28 +26,15 @@ def get_sheet():
             table_name = k
             # Pass the folder_id to the get_sheet_as_excel function
             ss_api.get_sheet_as_excel(
-                table_id, 
-                os.path.join(_dir_out, f'{table_name}.xlsx')
+                table_id, os.path.join(_dir_out, f"{table_name}.xlsx")
             )
-
-
-def attach_sheet():
-    if isinstance(CONFIG, dict):
-        print("Starting ...")
-        if "verbose" in CONFIG and CONFIG["verbose"] == True:
-            logging.basicConfig(filename="sheet.log", level=logging.INFO)
-        for k, v in CONFIG["tables"].items():
-            table_id = v["id"]
-            table_src = v["src"]
-            table_name = k
-            ss_api.attach_file(table_id, os.path.join(_dir_in, table_src))
 
 
 def set_sheet():
     print("Starting ...")
     if isinstance(CONFIG, dict):
-        target_workspace_id = CONFIG.get('env', {}).get('target_workspace')
-        target_folder_id = CONFIG.get('env', {}).get('target_folder')
+        target_workspace_id = CONFIG.get("env", {}).get("target_workspace")
+        target_folder_id = CONFIG.get("env", {}).get("target_folder")
 
         for k, v in CONFIG["tables"].items():
             table_id = v["id"]
@@ -58,9 +45,9 @@ def set_sheet():
             if not table_id:
                 print(f"No existing table, uploading {table_src} to {table_name}")
                 result = ss_api.import_xlsx_sheet(
-                    folder_id=target_folder_id if target_folder_id else None,
+                    sheet_name=table_name,
                     filepath=os.path.join(_dir_in, table_src),
-                    sheet_name=table_name
+                    folder_id=target_folder_id if target_folder_id else None,
                 )
                 if result:
                     table_id = str(result["result"]["id"])
@@ -68,9 +55,8 @@ def set_sheet():
                     CONFIG["tables"][k]["id"] = table_id
             else:
                 result = ss_api.import_xlsx_sheet(
-                    folder_id=target_folder_id if target_folder_id else None,
+                    sheet_name=f"TMP_{table_name}",
                     filepath=os.path.join(_dir_in, table_src),
-                    sheet_name=table_name
                 )
                 if not result:
                     continue
@@ -91,7 +77,6 @@ def set_sheet():
             print("done...")
 
 
-
 def update_sheet():
     """
     Updates the columns in the specified sheets to set "Status" as a dropdown
@@ -106,13 +91,13 @@ def update_sheet():
             ss_api.update_columns(sheet_id=table_id)
             print(f"Columns updated for table: {table_name}")
 
+
 def make_summary():
     print("Creating blank summary sheet in folder...")
     if isinstance(CONFIG, dict):
-        folder_id = CONFIG.get('env', {}).get('target_folder')
-        ss_api.create_blank_summary_sheet_in_folder(folder_id)
+        folder_id = CONFIG.get("env", {}).get("target_folder")
+        # ss_api.create_blank_summary_sheet_in_folder(folder_id)
         print("Blank summary sheet created in folder.")
-
 
 
 if __name__ == "__main__":
@@ -132,13 +117,10 @@ if __name__ == "__main__":
                 get_sheet()
             elif sys.argv[1] == "set":
                 set_sheet()
-            elif sys.argv[1] == "attach":
-                attach_sheet()
             elif sys.argv[1] == "update":
                 update_sheet()
             elif sys.argv[1] == "summary":
                 make_summary()
-            
 
     if isinstance(CONFIG, dict):
         with open(_conf, "w") as conf:
