@@ -7,13 +7,101 @@ import concurrent.futures, threading
 
 start_time = datetime.now()
 
-CONFIG = None
-_dir_in = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "Effectivity_Reports_Mod/"
-)
-_dir_out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out/")
-_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.toml")
+class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
+    def __init__(self, _dict=dict, preserve=False):
+        super(TomlLineBreakPreservingEncoder, self).__init__(_dict, preserve)
 
+    def dump_list(self, v):
+        retval = "[\n"
+        for u in v:
+            if isinstance(u, str) and "\n" in u:
+                retval += (
+                    '  """' + u.replace('"""', '\\"""').replace("\\", "\\\\") + '""",\n'
+                )
+            else:
+                retval += " " + str(self.dump_value(u)) + ","
+        retval += " ]"
+        return retval
+
+
+class Config:
+
+    def __init__(self) -> None:
+        import argparse
+
+        argparser = argparse.ArgumentParser(add_help=True)
+        argparser.add_argument(
+            "-c",
+            "--config",
+            type=str,
+            help="path/to/config.toml",
+            default="./config.toml",
+        )
+        argparser.add_argument("--verbose", action="store_true")
+        argparser.add_argument( "--threadcount", help="set # of threads", default=None)
+        args = argparser.parse_args()
+
+        self.path = os.path.abspath(os.path.expanduser(args.config))
+
+        with open(args.config, "r") as conf:
+            self._config = toml.load(conf)
+
+        self.tables = []
+
+        if isinstance(self._config, dict):
+            for k, v in self._config["env"].items():
+                os.environ[k] = v
+            if self._config.get("verbose", False):
+                self.verbose = True
+            self.root_id = self._config.get("root", None).get("folder_id", None)
+            self.root_dir = self._config.get("root", None).get("dir", "./")
+
+            for k, v in self._config.get("root", None).items():
+                # if child is a folder
+                if "folder_id" in v:
+                    pass
+                # otherwise it is a sheet
+                else:
+                    table_id = v["id"]
+                    table_src = (
+                        os.path.join(self.data_dir, v["src"])
+                        if os.path.isfile(os.path.join(self.data_dir, v["src"]))
+                        else ""
+                    )
+                    table_name = k
+                    self.tables.append(
+                        Table(table_id, parent_id, table_name, table_src)
+                    )
+        self.verbose = self.verbose or args.verbose
+        self.reaudit = args.reaudit
+        self.excel_only = args.excel_only
+        self.data_dir = self.data_dir or "./"
+
+        if self.verbose:
+            logging.basicConfig(
+                filename=os.path.join(self.data_dir, "sheet.log"),
+                filemode="w",
+                level=logging.INFO,
+            )
+
+    def serialize(self) -> None:
+        table_dict = {table.name: table for table in self.tables}
+        for k1, v1 in self._config.items():
+            if k1 == "tables":
+                for k2, v2 in v1.items():
+                    if k2 in table_dict:
+                        v2["id"] = table_dict[k2].id
+                        v2["date"] = table_dict[k2].refresh
+
+        with open(self.path, "w") as conf:
+            encoder = TomlLineBreakPreservingEncoder()
+            toml.dump(self._config, conf, encoder=encoder)
+class Table:
+    def __init__(self, id, parent_id, name, source):
+        self.id = id
+        self.parent_id = parent_id
+        self.name = name
+        self.source = source
 
 def get_sheet():
     if isinstance(CONFIG, dict):
@@ -170,7 +258,8 @@ def update_single_sheet(table_id, table_name):
                 title = col["title"]
                 # use specific update if it exists
                 if title in column_updates:
-                    updates[id] = {"title": title}.update(column_updates[title])
+                    updates[id] = {"title": title}
+                    updates[id].update(column_updates[title])
 
                 # Default update to TEXT_NUMBER
                 else:
@@ -197,7 +286,7 @@ if __name__ == "__main__":
         CONFIG = toml.load(conf)
         if isinstance(CONFIG, dict):
             for k, v in CONFIG["env"].items():
-                os.environ[k] = v
+                os.environ[k] = j
             print(CONFIG.get("verbose"))
             if CONFIG.get("verbose", False):
                 logging.basicConfig(
