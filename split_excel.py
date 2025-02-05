@@ -2,7 +2,7 @@ import os
 import pandas as pd
 
 # Define paths
-input_folder = 'Effectivity Reports Engine'
+input_folder = 'in'
 output_folder = 'Effectivity_Reports_Split'
 
 # Create the output directory if it doesn't exist
@@ -24,7 +24,7 @@ for file_name in os.listdir(input_folder):
 
         # Iterate over each group and save to a new Excel file
         for ac_value, group in grouped:
-            output_file = os.path.join(output_folder, f'{base_name}_{ac_value}.xlsx')
+            output_file = os.path.join(output_folder, f'{base_name}_AC{ac_value}.xlsx')
             group.to_excel(output_file, index=False)
 
 print("Splitting complete.")
