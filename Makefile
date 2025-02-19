@@ -60,7 +60,7 @@ get: install
 	$(VENV)/bin/python ./ss_uploader.py get
 
 test: install
-	$(VENV)/bin/python ./ss_uploader.py set
+	$(VENV)/bin/python ./ss_uploader.py update -c ./data/config.toml
 
 clean:
 	rm -rf $(VENV)

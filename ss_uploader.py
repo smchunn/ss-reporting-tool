@@ -179,16 +179,14 @@ class Table:
         )
 
     def export_to_ss(self) -> None:
-        excel_fp = os.path.join(Table.config.data_dir, f"{self.name}.xlsx")
-        ss_target_folder = Table.config.target_folder
-        result = ss_api.import_xlsx_sheet(self.name, excel_fp, ss_target_folder)
+        result = ss_api.import_xlsx_sheet(self.name, self.src, self.parent_id)
         if result:
             self.id = str(result["result"]["id"])
             self.update_refresh()
             print(f"  {self.name}({self.id}): new table loaded")
         Table.config.serialize()
 
-    def update_ss(self) -> None:
+    def update_ss(self, cols: list) -> None:
         if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
             self.sheet_id_to_col_map, dict
         ):
@@ -198,15 +196,7 @@ class Table:
                     "cells": [
                         {"columnId": self.sheet_col_to_id_map[col], "value": val}
                         for col, val in row.items()
-                        if col
-                        in [
-                            "USER_STATUS",
-                            "AUDIT_BY",
-                            "EPICC_STATUS",
-                            "MXI_REMAINING",
-                            "TRAX_REMAINING",
-                            "_MXI_BASELINE",
-                        ]
+                        if col in cols
                     ],
                 }
                 for row in self.data.filter("_UPDATE").iter_rows(named=True)
@@ -227,7 +217,6 @@ def get_sheet():
 
         # Collect results as they complete
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
-            pass
             print(f"thread no. {x} returned")
 
 
@@ -256,13 +245,11 @@ def set_single_sheet(table: Table):
     print(f"starting {table.name}...")
 
     if not table.id:
-        print(f"No existing table, uploading {table.src} to {table.name} in folder {table.parent_id}")
-        result = ss_api.import_xlsx_sheet(
-            sheet_name=table.name, filepath=table.src, folder_id=table.parent_id
+        # if table id not set in config
+        print(
+            f"No existing table, uploading {table.src} to {table.name} in folder {table.parent_id}"
         )
-        if result:
-            table.id = str(result["result"]["id"])
-            print(f"  {table.name}({table.id}): new table loaded")
+        table.export_to_ss()
     else:
         result = ss_api.import_xlsx_sheet(
             sheet_name=f"TMP_{table.name}", filepath=table.src
@@ -283,6 +270,7 @@ def set_single_sheet(table: Table):
         ss_api.clear_sheet(target_sheet_id)
         ss_api.move_rows(target_sheet_id, import_sheet_id)
         ss_api.delete_sheet(import_sheet_id)
+
     Table.config.serialize()
     print("done...")
 
@@ -296,8 +284,7 @@ def update_sheet():
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit all table processing tasks to the executor
         futures = [
-            executor.submit(update_single_sheet, table["id"], table_name)
-            for table_name, table in Table.config.tables
+            executor.submit(update_single_sheet, table) for table in Table.config.tables
         ]
 
         # Collect results as they complete
@@ -306,8 +293,8 @@ def update_sheet():
             print(f"thread no. {x} returned")
 
 
-def update_single_sheet(table_id, table_name):
-    print(f"Updating columns for table: {table_name} (ID: {table_id})")
+def update_single_sheet(table):
+    print(f"Updating columns for table: {table.name} (ID: {table.id})")
     column_updates = {
         "Status": {
             "type": "PICKLIST",
@@ -324,11 +311,11 @@ def update_single_sheet(table_id, table_name):
         "Created Date": {"type": "DATE"},
         "Modified Date": {"type": "DATE"},
     }
-    columns = ss_api.get_columns(sheet_id=table_id)
+    columns = ss_api.get_columns(sheet_id=table.id)
     if isinstance(columns, dict):
         columns = columns.get("data", None)
     if not columns:
-        print(f"error getting columns for '{table_name} (ID: {table_id})'")
+        print(f"error getting columns for '{table.name} (ID: {table.id})'")
 
     updates = {}
     if isinstance(columns, list):
@@ -348,15 +335,77 @@ def update_single_sheet(table_id, table_name):
                         "type": "TEXT_NUMBER",
                     }
     for id, update in updates.items():
-        ss_api.update_columns(sheet_id=table_id, column_id=id, column_update=update)
+        ss_api.update_columns(sheet_id=table.id, column_id=id, column_update=update)
 
-    print(f"Columns updated for table: {table_name}")
+    print(f"Columns updated for table: {table.name}")
 
 
 def make_summary():
     print("Creating blank summary sheet in folder...")
     # ss_api.create_blank_summary_sheet_in_folder(folder_id)
     print("Blank summary sheet created in folder.")
+
+
+def feedback_loop():
+    print("Starting ...")
+
+    def feedback_single_sheet(table: Table):
+        print(f"Getting {table.name} from smartsheet")
+        table.load_from_ss()
+        ss_df = table.data
+        print(
+            ss_df.select(
+                [col for col in ss_df.columns if not col.startswith("_")]
+            ).head()
+        )
+        new_df = pl.read_excel(
+            table.src,
+            schema_overrides=ss_df.select(
+                [col for col in ss_df.columns if not col.startswith("_")]
+            ).collect_schema(),
+        )
+        print(new_df.head())
+        ljoin_df = ss_df.join(
+            new_df, on=["AC", "FLEET", "PN", "VENDOR"], how="left", validate="1:1"
+        )
+        print(ljoin_df.head())
+        status_reopen = (col("Status") == lit("Updated")) & (
+            col("PROPOSED_ACTION_right") == lit("ACTION")
+        )
+
+        status_complete = (
+            col("Status").is_in(["Initial", "In-Work", "Issue", "Updated", "Re-Opened"])
+        ) & (col("PROPOSED_ACTION_right") == lit("NO_ACTION"))
+
+        status_err = col("PROPOSED_ACTION_right").is_null()
+
+        update_row = status_reopen | status_complete | status_err
+
+        df = ljoin_df.with_columns(
+            pl.when(status_reopen)
+            .then(lit("Re-Opened"))
+            .when(status_complete)
+            .then(lit("Complete"))
+            .when(status_err)
+            .then(lit("Error"))
+            .otherwise(col("Status"))
+            .alias("Status"),
+            pl.when(update_row).then(True).otherwise(False).alias("_UPDATE"),
+        ).select([col for col in ss_df.columns] + ["_UPDATE"])
+        print(df.head())
+        table.data = df
+        table.update_ss(["Status"])
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit all table processing tasks to the executor
+        futures = [
+            executor.submit(feedback_single_sheet, table)
+            for table in Table.config.tables
+        ]
+
+        # Collect results as they complete
+        for x, _ in enumerate(concurrent.futures.as_completed(futures)):
+            print(f"thread no. {x} returned")
 
 
 def main():
@@ -369,6 +418,8 @@ def main():
         update_sheet()
     elif Table.config.function == "summary":
         make_summary()
+    elif Table.config.function == "feedback":
+        feedback_loop()
 
 
 if __name__ == "__main__":
