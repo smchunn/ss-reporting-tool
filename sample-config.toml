@@ -2,11 +2,22 @@ verbose = true
 
 [env]
 SMARTSHEET_ACCESS_TOKEN = "8MFPRT7WqCkwCCZQxbfiiZxaHpCbY6ieostvu"
-target_workspace = "1468693428593860"
-target_folder = "4162732984672044"
 
-[tables.EFFECTIVITY_REPORT_STANDARD_A320_20250115_419]
+[root]
+dir = "path/to/dir"
+folder_id = "4162732984672044"
+A320.folder_id = "abc"
+A320.CATEGORY.folder_id = "def"
+
+[root.A320.CATEGORY.SER]
+folder_id = "abc"
+
+[root.A320.EFFECTIVITY_REPORTS]
+folder_id = "abc"
+[root.A320.ENGINE_EFFECTIVITY_REPORTS]
+folder_id = "abc"
+
+[root.A320.EFFECTIVITY_REPORTS.EFFECTIVITY_REPORT_STANDARD_A320_AC419]
 id = ""
-src = "EFFECTIVITY_REPORT_STANDARD_A320_20250115_419.xlsx"
-
+src = "EFFECTIVITY_REPORT_STANDARD_A320_AC419.xlsx"
 

@@ -49,7 +49,7 @@ dupes: install
 
 config: install
 	$(VENV)/bin/python ./create_config.py
-	
+
 update: install
 	$(VENV)/bin/python ./ss_uploader.py update
 
@@ -60,7 +60,7 @@ get: install
 	$(VENV)/bin/python ./ss_uploader.py get
 
 test: install
-	$(VENV)/bin/python ./ss_uploader.py test
+	$(VENV)/bin/python ./ss_uploader.py set
 
 clean:
 	rm -rf $(VENV)
