@@ -1,8 +1,7 @@
 .DS_Store
 .ignore
 .venv/**
-in/**
-out/**
+data
 Effectivity_Reports_Mod
 Effectivity_Reports_Split
 sheet.log
