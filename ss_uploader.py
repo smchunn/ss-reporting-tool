@@ -1,9 +1,11 @@
 from os.path import isfile
+
 import os, logging
 import toml, json
 from datetime import datetime
 import ss_api
 import concurrent.futures
+
 import polars as pl
 from polars import col, lit
 from datetime import datetime, timezone
@@ -12,7 +14,12 @@ from typing import List, Dict, Callable, Union
 
 start_time = datetime.now()
 
+
 logging.basicConfig(level=logging.DEBUG)
+
+class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
+    def __init__(self, _dict=dict, preserve=False):
+        super(TomlLineBreakPreservingEncoder, self).__init__(_dict, preserve)
 
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
@@ -32,10 +39,13 @@ class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
         return retval
 
 
+
 class Config:
+
 
     def __init__(self) -> None:
         import argparse
+
 
         argparser = argparse.ArgumentParser(add_help=True)
         argparser.add_argument("func", type=str, help="function to run: ")
@@ -51,7 +61,9 @@ class Config:
         argparser.add_argument("--debug", action="store_true")
         args = argparser.parse_args()
 
+
         self.function = args.func
+
 
         self.path = os.path.abspath(os.path.expanduser(args.config))
 
@@ -247,6 +259,7 @@ def get_sheet():
             executor.submit(get_single_sheet, table) for table in Table.config.tables
         ]
 
+
         # Collect results as they complete
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
             print(f"thread no. {x} returned")
@@ -282,6 +295,7 @@ def set_single_sheet(table: Table):
             f"No existing table, uploading {table.src} to {table.name} in folder {table.parent_id}"
         )
         table.export_to_ss()
+
     else:
         result = ss_api.import_xlsx_sheet(
             sheet_name=f"TMP_{table.name}", filepath=table.src
@@ -316,7 +330,9 @@ def update_sheet():
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit all table processing tasks to the executor
         futures = [
+
             executor.submit(update_single_sheet, table) for table in Table.config.tables
+
         ]
 
         # Collect results as they complete
@@ -377,6 +393,7 @@ def make_summary():
     print("Creating blank summary sheet in folder...")
     # ss_api.create_blank_summary_sheet_in_folder(folder_id)
     print("Blank summary sheet created in folder.")
+
 
 
 def feedback_loop():
@@ -478,6 +495,7 @@ def feedback_loop():
                 print(f"thread no. {x} returned")
 
 
+
 def main():
     Table.config = Config()
     if Table.config.function == "get":
@@ -488,8 +506,10 @@ def main():
         update_sheet()
     elif Table.config.function == "summary":
         make_summary()
+
     elif Table.config.function == "feedback":
         feedback_loop()
+
 
 
 if __name__ == "__main__":

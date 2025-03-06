@@ -18,6 +18,7 @@ run:
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/config.toml
 
+
 test:
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/config.toml
 
