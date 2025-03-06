@@ -1,9 +1,9 @@
 from os.path import isfile
-import sys, os, logging
+import os, logging
 import toml, json
 from datetime import datetime
 import ss_api
-import concurrent.futures, threading
+import concurrent.futures
 import polars as pl
 from polars import col, lit
 from datetime import datetime, timezone
@@ -11,6 +11,8 @@ from typing import List, Dict, Callable, Union
 
 
 start_time = datetime.now()
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
@@ -46,6 +48,7 @@ class Config:
         )
         argparser.add_argument("--verbose", action="store_true")
         argparser.add_argument("--threadcount", help="set # of threads", default=None)
+        argparser.add_argument("--debug", action="store_true")
         args = argparser.parse_args()
 
         self.function = args.func
@@ -71,7 +74,7 @@ class Config:
 
             self.target_folder = self._config.get("target_folder", None)
             for k, v in self._config["tables"].items():
-                table_id = v["id"]
+                table_id = v.get("id", None)
                 table_src = (
                     os.path.join(self.data_dir, v["src"])
                     if os.path.isfile(os.path.join(self.data_dir, v["src"]))
@@ -89,7 +92,6 @@ class Config:
                     )
                 )
         self.verbose = self.verbose or args.verbose
-
         if self.verbose:
             logging.basicConfig(
                 filename=os.path.join(self.data_dir, "sheet.log"),
@@ -162,7 +164,9 @@ class Table:
                 row_data[column_title] = cell.get("value", None)
             data.append(row_data)
 
-        self.data = pl.DataFrame(data, infer_schema_length=None)
+        self.data = pl.DataFrame(data, infer_schema_length=None).filter(
+            col("AC").is_not_null()
+        )
 
     def load_from_file(self) -> None:
         self.data = pl.read_csv(self.src, separator=chr(31))
@@ -186,7 +190,7 @@ class Table:
             print(f"  {self.name}({self.id}): new table loaded")
         Table.config.serialize()
 
-    def update_ss(self, cols: list) -> None:
+    def update_ss(self, cols: list) -> int:
         if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
             self.sheet_id_to_col_map, dict
         ):
@@ -201,9 +205,37 @@ class Table:
                 }
                 for row in self.data.filter("_UPDATE").iter_rows(named=True)
             ]
-            print(f"exporting {self.name}({self.id})")
-            ss_api.update_sheet(self.id, data)
-        Table.config.serialize()
+            if data:
+                print(f"exporting {self.name}({self.id})")
+                ss_api.update_sheet(self.id, data)
+                Table.config.serialize()
+                return len(data)
+        return 0
+
+    def insert_ss(self) -> int:
+        if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
+            self.sheet_id_to_col_map, dict
+        ):
+            for row in self.data.filter(col("_INSERT")).iter_rows(named=True):
+                print(row)
+
+            data = [
+                {
+                    "toTop": "true",
+                    "cells": [
+                        {"columnId": self.sheet_col_to_id_map[col], "value": val}
+                        for col, val in row.items()
+                        if col in self.sheet_col_to_id_map and val
+                    ],
+                }
+                for row in self.data.filter(col("_INSERT")).iter_rows(named=True)
+            ]
+            if data:
+                print(f"exporting {self.name}({self.id})")
+                ss_api.add_rows(self.id, data)
+                Table.config.serialize()
+                return len(data)
+        return 0
 
 
 def get_sheet():
@@ -300,6 +332,7 @@ def update_single_sheet(table):
             "type": "PICKLIST",
             "options": [
                 "Initial",
+                "Assigned",
                 "In-Work",
                 "Issue",
                 "Updated",
@@ -352,37 +385,61 @@ def feedback_loop():
     def feedback_single_sheet(table: Table):
         print(f"Getting {table.name} from smartsheet")
         table.load_from_ss()
-        ss_df = table.data
-        print(
-            ss_df.select(
-                [col for col in ss_df.columns if not col.startswith("_")]
-            ).head()
-        )
+        print(table.data.shape)
+        ss_df = table.data  # current smartsheet records
+        logging.debug(f"\n--ss data--\n{ss_df.head()}")
+        # new records from trax refresh
         new_df = pl.read_excel(
             table.src,
             schema_overrides=ss_df.select(
                 [col for col in ss_df.columns if not col.startswith("_")]
             ).collect_schema(),
         )
-        print(new_df.head())
-        ljoin_df = ss_df.join(
-            new_df, on=["AC", "FLEET", "PN", "VENDOR"], how="left", validate="1:1"
+        logging.debug(f"\n--excel data--\n{new_df.head()}")
+
+        # join the two sets
+        existing_records_df = ss_df.join(
+            new_df,
+            on=["AC", "FLEET", "MAIN_PN", "PN", "VENDOR"],
+            how="left",
+            validate="1:1",
         )
-        print(ljoin_df.head())
+        logging.debug(
+            f"\n--existing records({existing_records_df.shape})--\n{existing_records_df.head()}"
+        )
+
+        new_records_df = new_df.join(
+            ss_df, on=["AC", "FLEET", "MAIN_PN", "PN", "VENDOR"], how="anti"
+        )
+        logging.debug(
+            f"\n--new records({new_records_df.shape})--\n{new_records_df.head()}"
+        )
+
+        full_set_df = pl.concat([existing_records_df, new_records_df], how="diagonal")
+        logging.debug(f"\n--full set--({full_set_df.shape})\n{full_set_df.head()}")
+
+        # Status conditions
+        status_initial = col("_id").is_null()
+
         status_reopen = (col("Status") == lit("Updated")) & (
             col("PROPOSED_ACTION_right") == lit("ACTION")
         )
 
         status_complete = (
-            col("Status").is_in(["Initial", "In-Work", "Issue", "Updated", "Re-Opened"])
+            col("Status").is_in(
+                ["Initial", "Assigned", "In-Work", "Issue", "Updated", "Re-Opened"]
+            )
         ) & (col("PROPOSED_ACTION_right") == lit("NO_ACTION"))
 
         status_err = col("PROPOSED_ACTION_right").is_null()
 
         update_row = status_reopen | status_complete | status_err
+        insert_row = status_initial
 
-        df = ljoin_df.with_columns(
-            pl.when(status_reopen)
+        df = full_set_df.with_columns(
+            pl.when(status_initial)
+            .then(col("Status"))
+            .when(status_reopen)
             .then(lit("Re-Opened"))
             .when(status_complete)
             .then(lit("Complete"))
@@ -390,22 +447,35 @@ def feedback_loop():
             .then(lit("Error"))
             .otherwise(col("Status"))
             .alias("Status"),
-            pl.when(update_row).then(True).otherwise(False).alias("_UPDATE"),
-        ).select([col for col in ss_df.columns] + ["_UPDATE"])
-        print(df.head())
+            pl.when(update_row & ~insert_row)
+            .then(True)
+            .otherwise(False)
+            .alias("_UPDATE"),
+            pl.when(insert_row).then(True).otherwise(False).alias("_INSERT"),
+        ).select([col for col in ss_df.columns] + ["_UPDATE"] + ["_INSERT"])
+        logging.debug(f"\n--table data--\n{df.head()}")
+
         table.data = df
-        table.update_ss(["Status"])
+        num_update = table.update_ss(["Status"])
+        num_insert = table.insert_ss()
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Submit all table processing tasks to the executor
-        futures = [
-            executor.submit(feedback_single_sheet, table)
-            for table in Table.config.tables
-        ]
+        print(f"{table.name}: {num_update} updated rows | {num_insert} inserted rows")
 
-        # Collect results as they complete
-        for x, _ in enumerate(concurrent.futures.as_completed(futures)):
-            print(f"thread no. {x} returned")
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+        for table in Table.config.tables:
+            feedback_single_sheet(table)
+        pass
+    else:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Submit all table processing tasks to the executor
+            futures = [
+                executor.submit(feedback_single_sheet, table)
+                for table in Table.config.tables
+            ]
+
+            # Collect results as they complete
+            for x, _ in enumerate(concurrent.futures.as_completed(futures)):
+                print(f"thread no. {x} returned")
 
 
 def main():
