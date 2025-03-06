@@ -3,7 +3,8 @@ smartsheet-python-sdk
 toml
 httpx
 truststore
-pandas
+polars
 pyinstaller
 xlsxwriter
+fastexcel
 https://github.com/smchunn/ss-api/archive/master.zip
