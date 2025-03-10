@@ -15,7 +15,7 @@ from typing import List, Dict, Callable, Union
 start_time = datetime.now()
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
     def __init__(self, _dict=dict, preserve=False):
@@ -118,6 +118,8 @@ class Config:
                 for k2, v2 in v1.items():
                     if k2 in table_dict:
                         v2["id"] = table_dict[k2].id
+                        if not table_dict[k2].refresh:
+                            table_dict[k2].update_refresh
                         v2["date"] = table_dict[k2].refresh
 
         with open(self.path, "w") as conf:
@@ -249,6 +251,21 @@ class Table:
                 return len(data)
         return 0
 
+    def delete_ss(self) -> int:
+        if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
+            self.sheet_id_to_col_map, dict
+        ):
+
+            data = [
+                row["_id"]
+                for row in self.data.filter(col("_DELETE")).iter_rows(named=True)
+            ]
+            if data:
+                print(f"deleting from {self.name}({self.id})")
+                ss_api.delete_rows(self.id, data)
+                Table.config.serialize()
+                return len(data)
+        return 0
 
 def get_sheet():
     print("Starting ...")
@@ -339,6 +356,48 @@ def update_sheet():
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
             pass
             print(f"thread no. {x} returned")
+
+def remove_dupes():
+    '''Remove duplicates from smartsheet reports'''
+    print("Removing smartsheet duplicates")
+
+    def dedupe_single_sheet(table: Table):
+        print(f"Getting {table.name} from smartsheet")
+        table.load_from_ss()
+        print(table.data.shape)
+        ss_df = table.data  # current smartsheet records
+        logging.debug(f"\n--ss data--\n{ss_df.head()}")
+    
+        # Create a new column "_DELETE" initialized to False
+        ss_df = ss_df.with_columns(pl.lit(False).alias("_DELETE"))
+        
+        # Use the .with_columns method to conditionally set "_DELETE" to True
+        ss_df = ss_df.with_columns(
+            pl.struct("AC", "FLEET", "PN","MAIN_PN", "VENDOR").is_first_distinct()
+            .not_()
+            .alias("_DELETE")
+        )
+    
+        table.data = ss_df
+        num_delete = table.delete_ss()
+        print(f"{table.name} Deleted rows: {num_delete}")
+
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+        for table in Table.config.tables:
+            dedupe_single_sheet(table)
+        pass
+    else:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Submit all table processing tasks to the executor
+            futures = [
+                executor.submit(dedupe_single_sheet, table)
+                for table in Table.config.tables
+            ]
+
+            # Collect results as they complete
+            for x, _ in enumerate(concurrent.futures.as_completed(futures)):
+                print(f"thread no. {x} returned")   
+
 
 
 def update_single_sheet(table):
@@ -506,7 +565,8 @@ def main():
         update_sheet()
     elif Table.config.function == "summary":
         make_summary()
-
+    elif Table.config.function == "dedupe":
+        remove_dupes()
     elif Table.config.function == "feedback":
         feedback_loop()
 
