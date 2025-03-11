@@ -2,8 +2,8 @@ import os
 import polars as pl
 
 # Define paths
-input_folder = "smartsheet"
-output_folder = "smartsheet_split"
+input_folder = "in"
+output_folder = "split"
 
 # Create the output directory if it doesn't exist
 os.makedirs(output_folder, exist_ok=True)

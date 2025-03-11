@@ -16,10 +16,13 @@ run:
 	$(VENV)/bin/python ./ss_uploader.py update -c ./data/config.toml
 
 feedback: install
-	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/config.toml
+	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
 
 dedupe: install
 	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/config.toml
+
+split: install
+	$(VENV)/bin/python ./split_excel.py
 
 test:
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/config.toml

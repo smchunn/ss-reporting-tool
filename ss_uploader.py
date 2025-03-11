@@ -15,7 +15,7 @@ from typing import List, Dict, Callable, Union
 start_time = datetime.now()
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
     def __init__(self, _dict=dict, preserve=False):
