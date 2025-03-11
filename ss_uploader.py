@@ -15,7 +15,7 @@ from typing import List, Dict, Callable, Union
 start_time = datetime.now()
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
     def __init__(self, _dict=dict, preserve=False):
@@ -501,7 +501,7 @@ def feedback_loop():
         status_initial = col("_id").is_null()
 
         status_reopen = (col("Status") == lit("Updated")) & (
-            col("PROPOSED_ACTION_right") == lit("ACTION")
+            col("PROPOSED_ACTION_right") != lit("NO_ACTION")
         )
 
         status_complete = (
