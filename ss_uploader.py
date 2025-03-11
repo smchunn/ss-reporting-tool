@@ -484,11 +484,14 @@ def feedback_loop():
             f"\n--existing records({existing_records_df.shape})--\n{existing_records_df.head()}"
         )
 
-        new_records_df = new_df.join(
+        # Filter out NO_ACTION rows before determining new records
+        new_records_df = new_df.filter(
+            col("PROPOSED_ACTION") != lit("NO_ACTION")
+        ).join(
             ss_df, on=["AC", "FLEET", "MAIN_PN", "PN", "VENDOR"], how="anti"
         )
         logging.debug(
-            f"\n--new records({new_records_df.shape})--\n{new_records_df.head()}"
+            f"\n--new records (filtered)({new_records_df.shape})--\n{new_records_df.head()}"
         )
 
         full_set_df = pl.concat([existing_records_df, new_records_df], how="diagonal")
@@ -552,6 +555,7 @@ def feedback_loop():
             # Collect results as they complete
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
+
 
 
 
