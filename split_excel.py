@@ -27,7 +27,7 @@ for file_name in os.listdir(input_folder):
             if isinstance(ac_value, tuple):
                 ac_value = ac_value[0]
 
-            output_file = os.path.join(output_folder, f"{base_name}_AC{ac_value}.xlsx")
+            output_file = os.path.join(output_folder, f"{base_name}_{ac_value}.xlsx")
             group.write_excel(output_file, include_header=True)
 
 print("Splitting complete.")

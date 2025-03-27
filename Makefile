@@ -18,13 +18,19 @@ run:
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
 
+feedback_engine: install
+	$(VENV)/bin/python ./ss_uploader.py feedback_engine -c ./data/config.toml	
+
 dedupe: install
 	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/config.toml
+
+dedupe_engine: install
+	$(VENV)/bin/python ./ss_uploader.py dedupe_engine -c ./data/config.toml
 
 split: install
 	$(VENV)/bin/python ./split_excel.py
 
-test:
+test: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/config.toml
 
 clean:
