@@ -41,11 +41,8 @@ class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
 
 
 class Config:
-
-
     def __init__(self) -> None:
         import argparse
-
 
         argparser = argparse.ArgumentParser(add_help=True)
         argparser.add_argument("func", type=str, help="function to run: ")
@@ -61,11 +58,11 @@ class Config:
         argparser.add_argument("--debug", action="store_true")
         args = argparser.parse_args()
 
-
         self.function = args.func
-
-
         self.path = os.path.abspath(os.path.expanduser(args.config))
+        self.config_dir = os.path.dirname(self.path)  # Extract the directory
+        print(f"Config path: {self.path}")
+        print(f"Config directory: {self.config_dir}")
 
         with open(args.config, "r") as conf:
             self._config = toml.load(conf)
@@ -283,10 +280,10 @@ def get_sheet():
 
 
 def get_single_sheet(table: Table):
-    print(f"Getting {table.name} as xslx")
-    ss_api.get_sheet_as_xlsx(
-        table.id, os.path.join(Table.config.path, f"{table.name}.xlsx")
-    )
+    print(f"Getting {table.name} as xlsx")
+    save_path = os.path.join(Table.config.config_dir, f"{table.name}.xlsx")  # Use config_dir
+    ss_api.get_sheet_as_xlsx(table.id, save_path)
+    print(f"Saved {table.name} to {save_path}")
 
 
 def set_sheet():
