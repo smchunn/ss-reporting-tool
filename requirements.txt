@@ -4,6 +4,7 @@ toml
 httpx
 truststore
 polars
+pandas
 pyinstaller
 xlsxwriter
 fastexcel
