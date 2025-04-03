@@ -41,8 +41,11 @@ class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
 
 
 class Config:
+
+
     def __init__(self) -> None:
         import argparse
+
 
         argparser = argparse.ArgumentParser(add_help=True)
         argparser.add_argument("func", type=str, help="function to run: ")
@@ -58,11 +61,11 @@ class Config:
         argparser.add_argument("--debug", action="store_true")
         args = argparser.parse_args()
 
+
         self.function = args.func
+
+
         self.path = os.path.abspath(os.path.expanduser(args.config))
-        self.config_dir = os.path.dirname(self.path)  # Extract the directory
-        print(f"Config path: {self.path}")
-        print(f"Config directory: {self.config_dir}")
 
         with open(args.config, "r") as conf:
             self._config = toml.load(conf)
@@ -312,21 +315,22 @@ def set_single_sheet(table: Table):
 
     else:
         result = ss_api.import_xlsx_sheet(
-            sheet_name=f"TMP_{table.name}", filepath=table.src
+            sheet_name=f"TMP_{table.name}", filepath=table.src, sheet_id = table.id
         )
+        
         if not result:
             return
-
+        print(314)
         if "message" in result and result["message"] != "SUCCESS":
             print(result["message"])
             return
-
+        print(318)
         import_sheet_id = result["result"]["id"]
         target_sheet_id = table.id
-
+        print(321)
         if not import_sheet_id or not target_sheet_id:
             return
-
+        print(324)
         ss_api.clear_sheet(target_sheet_id)
         ss_api.move_rows(target_sheet_id, import_sheet_id)
         ss_api.delete_sheet(import_sheet_id)

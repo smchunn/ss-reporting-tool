@@ -11,30 +11,26 @@ $(VENV):
 install: requirements.txt | $(VENV)
 	$(VENV)/bin/pip install -r $(REQUIREMENTS)
 
-
 run:
 	$(VENV)/bin/python ./ss_uploader.py set -c ./data/config.toml
 	$(VENV)/bin/python ./ss_uploader.py update -c ./data/config.toml
-
+	
 get: install
-	$(VENV)/bin/python ./ss_uploader.py get -c ./data/config.toml
+	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A320_config.toml
+
+set: install
+	$(VENV)/bin/python ./ss_uploader.py set -c ./data/config.toml
 
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
 
 feedback_engine: install
-	$(VENV)/bin/python ./ss_uploader.py feedback_engine -c ./data/A320_engine_config.toml	
-
-dedupe: install
-	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/config.toml
-
-dedupe_engine: install
-	$(VENV)/bin/python ./ss_uploader.py dedupe_engine -c ./data/A320_engine_config.toml
+	$(VENV)/bin/python ./ss_uploader.py feedback_engine -c ./data/A320_engine_config.toml
 
 split: install
 	$(VENV)/bin/python ./split_excel.py
 
-reformat: install
+reformat: 
 	$(VENV)/bin/python ./reformat_sheets.py
 
 test: install
