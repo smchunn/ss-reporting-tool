@@ -84,7 +84,8 @@ class Config:
                 print(f"Error: data dir exists as file")
                 exit()
 
-            self.target_folder = self._config.get("target_folder", None)
+            self.target_folder = self._config.get("env", {}).get("target_folder")
+            print(f"target folder 88: {self.target_folder}")
             for k, v in self._config["tables"].items():
                 table_id = v.get("id", None)
                 table_src = (
@@ -118,9 +119,9 @@ class Config:
                 for k2, v2 in v1.items():
                     if k2 in table_dict:
                         v2["id"] = table_dict[k2].id
-                        if not table_dict[k2].refresh:
+                        if not table_dict[k2].update_refresh: #not sure this and the next line are necessary
                             table_dict[k2].update_refresh
-                        v2["date"] = table_dict[k2].refresh
+                        v2["date"] = table_dict[k2].last_update
 
         with open(self.path, "w") as conf:
             encoder = TomlLineBreakPreservingEncoder()
@@ -139,6 +140,7 @@ class Table:
         self.data: pl.DataFrame = pl.DataFrame()
         self.sheet_id_to_col_map = None
         self.sheet_col_to_id_map = None
+        print(f"folder 142: {self.parent_id}")
 
     def __bool__(self) -> bool:
         return not self.data.is_empty()
@@ -301,6 +303,9 @@ def set_sheet():
         # Collect results as they complete
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
             print(f"thread no. {x} returned")
+            #if isinstance(futures.result, tuple) and futures.result[0] == "new_id":
+            #CONFIG["tables"][result[1]]["id"] = result[2]
+            Table.config.serialize()
 
 
 def set_single_sheet(table: Table):
@@ -313,6 +318,10 @@ def set_single_sheet(table: Table):
             filepath=os.path.join(table.src),
             folder_id=table.parent_id if table.parent_id else None,
         )
+        print(f"sheet name: {table.name}")
+        print(f"filepath: {table.src}")
+        print(f"folder_id: {table.parent_id}")
+        
         if result:
             table.id = str(result["result"]["id"])
             print(f"  {table.name}({table.id}): new table loaded")
