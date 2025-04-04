@@ -85,9 +85,9 @@ class Config:
                 exit()
 
             self.target_folder = self._config.get("env", {}).get("target_folder")
-            print(f"target folder 88: {self.target_folder}")
             for k, v in self._config["tables"].items():
                 table_id = v.get("id", None)
+                target_id = v.get("target_id", None)  # Get target_id from config
                 table_src = (
                     os.path.join(self.data_dir, v["src"])
                     if os.path.isfile(os.path.join(self.data_dir, v["src"]))
@@ -99,6 +99,7 @@ class Config:
                     Table(
                         table_id,
                         self.target_folder,
+                        target_id,
                         table_name,
                         table_src,
                         table_refresh,
@@ -131,16 +132,16 @@ class Config:
 class Table:
     config: Config
 
-    def __init__(self, id, parent_id, name, src, last_update) -> None:
+    def __init__(self, id, parent_id, target_id, name, src, last_update) -> None:
         self.name = name
         self.id = id
         self.parent_id = parent_id
+        self.target_id = target_id
         self.src = src
         self.last_update = last_update
         self.data: pl.DataFrame = pl.DataFrame()
         self.sheet_id_to_col_map = None
         self.sheet_col_to_id_map = None
-        print(f"folder 142: {self.parent_id}")
 
     def __bool__(self) -> bool:
         return not self.data.is_empty()
@@ -286,7 +287,7 @@ def get_sheet():
 
 def get_single_sheet(table: Table):
     print(f"Getting {table.name} as xlsx")
-    save_path = os.path.join(Table.config.config_dir, f"{table.name}.xlsx")  # Use config_dir
+    save_path = os.path.join(Table.config.data_dir, f"{table.name}.xlsx")  # Use config_dir
     ss_api.get_sheet_as_xlsx(table.id, save_path)
     print(f"Saved {table.name} to {save_path}")
 
@@ -303,8 +304,6 @@ def set_sheet():
         # Collect results as they complete
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
             print(f"thread no. {x} returned")
-            #if isinstance(futures.result, tuple) and futures.result[0] == "new_id":
-            #CONFIG["tables"][result[1]]["id"] = result[2]
             Table.config.serialize()
 
 
@@ -318,9 +317,6 @@ def set_single_sheet(table: Table):
             filepath=os.path.join(table.src),
             folder_id=table.parent_id if table.parent_id else None,
         )
-        print(f"sheet name: {table.name}")
-        print(f"filepath: {table.src}")
-        print(f"folder_id: {table.parent_id}")
         
         if result:
             table.id = str(result["result"]["id"])
@@ -334,24 +330,44 @@ def set_single_sheet(table: Table):
         
         if not result:
             return
-        print(314)
         if "message" in result and result["message"] != "SUCCESS":
             print(result["message"])
             return
-        print(318)
         import_sheet_id = result["result"]["id"]
         target_sheet_id = table.id
-        print(321)
         if not import_sheet_id or not target_sheet_id:
             return
-        print(324)
         ss_api.clear_sheet(target_sheet_id)
         ss_api.move_rows(target_sheet_id, import_sheet_id)
         ss_api.delete_sheet(import_sheet_id)
 
-    Table.config.serialize()
+    #Table.config.serialize()
     print("done...")
 
+
+def reformat_sheet():
+    print("Starting ...")
+    set_sheet()
+    update_sheet()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit all table processing tasks to the executor
+        futures = [
+            executor.submit(reformat_single_sheet, table) for table in Table.config.tables
+        ]
+
+        # Collect results as they complete
+        for x, _ in enumerate(concurrent.futures.as_completed(futures)):
+            print(f"thread no. {x} returned")
+            Table.config.serialize()
+
+
+def reformat_single_sheet(table: Table):
+    print(f"reformatting {table.name}...")
+
+    ss_api.clear_sheet(table.target_id)
+    ss_api.move_rows(table.target_id, table.id)
+    ss_api.delete_sheet(table.id)
+    print("done...")
 
 def update_sheet():
     """
@@ -746,6 +762,8 @@ def main():
         feedback_loop()
     elif Table.config.function == "feedback_engine":
         feedback_loop_engine()
+    elif Table.config.function == "reformat":
+        reformat_sheet()
 
 
 
