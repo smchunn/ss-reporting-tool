@@ -307,11 +307,16 @@ def set_single_sheet(table: Table):
     print(f"starting {table.name}...")
 
     if not table.id:
-        # if table id not set in config
-        print(
-            f"No existing table, uploading {table.src} to {table.name} in folder {table.parent_id}"
+        print(f"No existing table, uploading {table.src} to {table.name}")
+        result = ss_api.import_xlsx_sheet(
+            sheet_name=table.name,
+            filepath=os.path.join(table.src),
+            folder_id=table.parent_id if table.parent_id else None,
         )
-        table.export_to_ss()
+        if result:
+            table.id = str(result["result"]["id"])
+            print(f"  {table.name}({table.id}): new table loaded")
+            return ("new_id", table.name, table.id)
 
     else:
         result = ss_api.import_xlsx_sheet(
