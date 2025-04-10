@@ -348,26 +348,43 @@ def set_single_sheet(table: Table):
 def reformat_sheet():
     print("Starting ...")
     set_sheet()
-    update_sheet()
+
+    # Clear sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Submit all table processing tasks to the executor
-        futures = [
-            executor.submit(reformat_single_sheet, table) for table in Table.config.tables
-        ]
+        futures = [executor.submit(clear_single_sheet, table) for table in Table.config.tables]
 
-        # Collect results as they complete
-        for x, _ in enumerate(concurrent.futures.as_completed(futures)):
-            print(f"thread no. {x} returned")
-            Table.config.serialize()
+    # Move sheets
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(move_single_sheet, table) for table in Table.config.tables]
 
+    # Delete sheets
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(delete_single_sheet, table) for table in Table.config.tables]
+    
+    #Rename sheets
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(rename_single_sheet, table) for table in Table.config.tables]
 
-def reformat_single_sheet(table: Table):
-    print(f"reformatting {table.name}...")
+def clear_single_sheet(table: Table):
+    print(f"clearing {table.target_id}...")
+    ss_api.delete_all_rows(table.target_id)
+    print("done...")
 
-    ss_api.clear_sheet(table.target_id)
+def move_single_sheet(table: Table):
+    print(f"moving {table.name}...")
     ss_api.move_rows(table.target_id, table.id)
+    print("done...")
+    
+def delete_single_sheet(table: Table):
+    print(f"deleting {table.name}...")
     ss_api.delete_sheet(table.id)
     print("done...")
+
+def rename_single_sheet(table: Table):
+    print(f"renaming {table.target_id}...")
+    ss_api.rename_sheet(table.target_id, table.name)
+    print("done...")
+
 
 def update_sheet():
     """
@@ -764,6 +781,8 @@ def main():
         feedback_loop_engine()
     elif Table.config.function == "reformat":
         reformat_sheet()
+    elif Table.config.function == "delete_rows":
+        delete_whole_sheet()
 
 
 
