@@ -352,18 +352,22 @@ def reformat_sheet():
     # Clear sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(clear_single_sheet, table) for table in Table.config.tables]
-
+    concurrent.futures.wait(futures)
+    
     # Move sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(move_single_sheet, table) for table in Table.config.tables]
+    concurrent.futures.wait(futures)
 
     # Delete sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(delete_single_sheet, table) for table in Table.config.tables]
-    
+    concurrent.futures.wait(futures)
+
     #Rename sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(rename_single_sheet, table) for table in Table.config.tables]
+    concurrent.futures.wait(futures)
 
 def clear_single_sheet(table: Table):
     print(f"clearing {table.target_id}...")

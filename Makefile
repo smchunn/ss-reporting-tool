@@ -32,19 +32,23 @@ split: install
 	$(VENV)/bin/python ./reformat_sheets.py
 
 hold:
-	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A320_config.toml
+	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A320_config_test.toml
 	$(VENV)/bin/python ./reformat_sheets.py
-	$(VENV)/bin/python ./create_reformat_config.py
+	$(VENV)/bin/python ./create_reformat_config.py A320_config_test.toml
 	$(VENV)/bin/python ./ss_uploader.py reformat -c ./data/reformat_config.toml
 
 reformat: install
-	$(VENV)/bin/python ./ss_uploader.py reformat -c ./data/config.toml
+	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A321_config.toml
+	$(VENV)/bin/python ./reformat_sheets.py
+	$(VENV)/bin/python ./create_reformat_config.py A321_config.toml
+	$(VENV)/bin/python ./ss_uploader.py reformat -c ./data/reformat_config.toml
 
-delete_rows: install
-	$(VENV)/bin/python ./ss_uploader.py delete_rows -c ./data/config.toml
 
-test: install
-	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/config.toml
+test: 
+	$(VENV)/bin/python ./ss_uploader.py reformat -c ./data/reformat_config.toml
+
+verify:
+	$(VENV)/bin/python ./count_rows.py
 
 clean:
 	rm -rf $(VENV)
