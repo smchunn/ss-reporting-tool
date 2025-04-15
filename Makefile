@@ -14,12 +14,13 @@ install: requirements.txt | $(VENV)
 run:
 	$(VENV)/bin/python ./ss_uploader.py set -c ./data/config.toml
 	$(VENV)/bin/python ./ss_uploader.py update -c ./data/config.toml
+	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/config.toml
 	
 get: 
 	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A320_config.toml
 
 set:
-	$(VENV)/bin/python ./ss_uploader.py set -c ./data/config.toml
+	$(VENV)/bin/python ./ss_uploader.py set -c ./data/A319_config_category.toml
 
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
@@ -43,9 +44,14 @@ reformat: install
 	$(VENV)/bin/python ./create_reformat_config.py A321_config.toml
 	$(VENV)/bin/python ./ss_uploader.py reformat -c ./data/reformat_config.toml
 
+update:
+	$(VENV)/bin/python ./ss_uploader.py update -c ./data/A320_config_category.toml
+
+dedupe:
+	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/A319_config_category.toml
 
 test: 
-	$(VENV)/bin/python ./ss_uploader.py reformat -c ./data/reformat_config.toml
+	$(VENV)/bin/python ./create_config.py
 
 verify:
 	$(VENV)/bin/python ./count_rows.py

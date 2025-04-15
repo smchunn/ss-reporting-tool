@@ -300,6 +300,7 @@ def set_sheet():
         futures = [
             executor.submit(set_single_sheet, table) for table in Table.config.tables
         ]
+        
 
         # Collect results as they complete
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
@@ -341,7 +342,7 @@ def set_single_sheet(table: Table):
         ss_api.move_rows(target_sheet_id, import_sheet_id)
         ss_api.delete_sheet(import_sheet_id)
 
-    #Table.config.serialize()
+    Table.config.serialize()
     print("done...")
 
 
