@@ -4,7 +4,11 @@ toml
 httpx
 truststore
 polars
+pandas
 pyinstaller
 xlsxwriter
 fastexcel
-https://github.com/smchunn/ss-api/archive/master.zip
+#https://github.com/smchunn/ss-api/archive/master.zip
+git+https://github.com/smchunn/ss-api.git@dev-rename-sheet#egg=ss-api
+
+
