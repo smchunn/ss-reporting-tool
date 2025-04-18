@@ -120,15 +120,9 @@ class Config:
                 for k2, v2 in v1.items():
                     if k2 in table_dict:
                         v2["id"] = table_dict[k2].id
-<<<<<<< HEAD
-                        if not table_dict[k2].refresh:
-                            table_dict[k2].update_refresh
-                        v2["date"] = table_dict[k2].refresh
-=======
                         if not table_dict[k2].update_refresh: #not sure this and the next line are necessary
                             table_dict[k2].update_refresh
                         v2["date"] = table_dict[k2].last_update
->>>>>>> reformat_reports
 
         with open(self.path, "w") as conf:
             encoder = TomlLineBreakPreservingEncoder()
@@ -375,6 +369,7 @@ def reformat_sheet():
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(rename_single_sheet, table) for table in Table.config.tables]
     concurrent.futures.wait(futures)
+    
 
 def clear_single_sheet(table: Table):
     print(f"clearing {table.target_id}...")
@@ -395,6 +390,30 @@ def rename_single_sheet(table: Table):
     print(f"renaming {table.target_id}...")
     ss_api.rename_sheet(table.target_id, table.name)
     print("done...")
+
+def refresh_summary():
+    print("Starting ...")
+    set_sheet()
+
+    # Clear sheets
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(clear_single_sheet, table) for table in Table.config.tables]
+    concurrent.futures.wait(futures)
+    
+    # Move sheets
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(move_single_sheet, table) for table in Table.config.tables]
+    concurrent.futures.wait(futures)
+
+    # Delete sheets
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(delete_single_sheet, table) for table in Table.config.tables]
+    concurrent.futures.wait(futures)
+
+    #Rename sheets
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(rename_single_sheet, table) for table in Table.config.tables]
+    concurrent.futures.wait(futures)
 
 
 def update_sheet():
@@ -457,8 +476,6 @@ def remove_dupes():
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")   
 
-<<<<<<< HEAD
-=======
 def remove_dupes_engine():
     '''Remove duplicates from smartsheet reports'''
     print("Removing smartsheet duplicates")
@@ -499,7 +516,6 @@ def remove_dupes_engine():
             # Collect results as they complete
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")   
->>>>>>> reformat_reports
 
 
 def update_single_sheet(table):
@@ -773,6 +789,13 @@ def feedback_loop_engine():
             # Collect results as they complete
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
+    
+def get_sheetids():
+    sheet_ids = ss_api.get_sheetid('3590285109290884')
+    if sheet_ids:
+        for name, sheet_id in sheet_ids.items():
+            print(f'Sheet Name: {name}, Sheet ID: {sheet_id}')
+
 
 
 def main():
@@ -787,20 +810,18 @@ def main():
         make_summary()
     elif Table.config.function == "dedupe":
         remove_dupes()
-<<<<<<< HEAD
-=======
     elif Table.config.function == "dedupe_engine":
         remove_dupes_engine()
->>>>>>> reformat_reports
     elif Table.config.function == "feedback":
         feedback_loop()
     elif Table.config.function == "feedback_engine":
         feedback_loop_engine()
     elif Table.config.function == "reformat":
         reformat_sheet()
-    elif Table.config.function == "delete_rows":
-        delete_whole_sheet()
-
+    elif Table.config.function == "get_sheetids":
+        get_sheetids()
+    elif Table.config.function == "refresh_summary":
+        refresh_summary()
 
 
 if __name__ == "__main__":

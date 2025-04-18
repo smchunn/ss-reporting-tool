@@ -1,13 +1,13 @@
 import os
 
 # Define the paths
-config_path = './data/A319_config_category.toml'
+config_path = './data/summary_config.toml'
 
 # Get the current directory where the script is located
 current_directory = os.path.dirname(os.path.abspath(__file__))
 
 # Define the path to the Excel folder in the current directory
-excel_folder_path = os.path.join(current_directory, './A319/Category')
+excel_folder_path = os.path.join(current_directory, './import')
 
 # Read the existing config.toml content
 with open(config_path, 'r') as file:

@@ -2,22 +2,25 @@ import pandas as pd
 import os
 
 # Define the input and output folders
-input_folder = 'Effectivity Reports'
-output_folder = 'Effectivity_Reports_Mod'
+input_folder = './data'
+output_folder = './import'
 
-# Get the list of files in the input folder
-files = os.listdir(input_folder)
+# Get the list of Excel files in the input folder
+files = [f for f in os.listdir(input_folder) if f.endswith('.xlsx')]
 
-# Assume there is only one file in the input folder
-if len(files) != 1:
-    raise Exception("The input folder should contain exactly one file.")
+# Check if there are any files in the input folder
+if not files:
+    raise Exception("The input folder should contain at least one Excel file.")
 
-# Get the file name
-original_file_name = files[0]
-original_file_path = os.path.join(input_folder, original_file_name)
+# Load and concatenate all Excel files into a single DataFrame
+df_list = []
+for file in files:
+    file_path = os.path.join(input_folder, file)
+    df = pd.read_excel(file_path)
+    df_list.append(df)
 
-# Load the original Excel file
-df = pd.read_excel(original_file_path)
+# Concatenate all DataFrames
+df = pd.concat(df_list, ignore_index=True)
 
 # Update the status to 'Validated' if 'FEEDBACK' column has a non-blank value
 df.loc[df['FEEDBACK'].notna() & (df['FEEDBACK'] != ''), 'Status'] = 'Validated'
@@ -28,40 +31,42 @@ open_parts_df = df[~df['Status'].isin(['Validated', 'Complete'])]
 # Ensure the output folder exists
 os.makedirs(output_folder, exist_ok=True)
 
-# Define the categories
-categories = ['XPENDBL', 'SER', 'NON-SER', 'REPSER', 'REP-FA', 'ENGINES', 'CON-RAW', 'TOOL-SER']
+# Get unique fleets from the FLEET column
+fleets = df['FLEET'].unique()
 
-# Function to create summaries for each category
-def create_category_summaries(category):
-    # Filter the DataFrame for the current category
-    category_df = df[df['CATEGORY'] == category]
-    open_category_df = open_parts_df[open_parts_df['CATEGORY'] == category]
+# Replace specified categories with 'OTHER'
+df['CATEGORY'] = df['CATEGORY'].replace({'KIT': 'OTHER', 'GEN-CON': 'OTHER', 'SOFTWARE': 'OTHER'})
+
+# Function to create summaries for each fleet
+def create_fleet_summaries(fleet):
+    fleet_df = df[df['FLEET'] == fleet]
+    open_fleet_df = open_parts_df[open_parts_df['FLEET'] == fleet]
 
     # First Summary: Summary by Action (only for open parts)
     action_summary_df = pd.DataFrame()
-    action_summary_df['AC'] = open_category_df['AC'].unique()
+    action_summary_df['AC'] = open_fleet_df['AC'].unique()
 
     def count_action(ac_value, action):
-        return len(open_category_df[(open_category_df['AC'] == ac_value) & (open_category_df['PROPOSED_ACTION'] == action)])
+        return len(open_fleet_df[(open_fleet_df['AC'] == ac_value) & (open_fleet_df['PROPOSED_ACTION'] == action)])
 
     action_summary_df['Add Effectivity'] = action_summary_df['AC'].apply(lambda x: count_action(x, 'ADD_EFFECTIVITY'))
     action_summary_df['Validate Effectivity'] = action_summary_df['AC'].apply(lambda x: count_action(x, 'VALIDATE_EFFECTIVITY'))
     action_summary_df['TOTAL'] = action_summary_df['Add Effectivity'] + action_summary_df['Validate Effectivity']
 
-    action_summary_file_path = os.path.join(output_folder, f"{original_file_name.split('.')[0]}_{category}_action.xlsx")
+    action_summary_file_path = os.path.join(output_folder, f"{fleet}_ACTIONS.xlsx")
     action_summary_df.to_excel(action_summary_file_path, index=False)
 
     # Second Summary: Summary by Status
     status_categories = ['Initial', 'In-Work', 'Issue', 'Updated', 'Re-Opened', 'Validated', 'Complete']
-    status_summary_df = category_df.groupby(['AC', 'Status']).size().unstack(fill_value=0).reindex(columns=status_categories, fill_value=0).reset_index()
+    status_summary_df = fleet_df.groupby(['AC', 'Status']).size().unstack(fill_value=0).reindex(columns=status_categories, fill_value=0).reset_index()
 
-    status_summary_file_path = os.path.join(output_folder, f"{original_file_name.split('.')[0]}_{category}_status.xlsx")
+    status_summary_file_path = os.path.join(output_folder, f"{fleet}_STATUS.xlsx")
     status_summary_df.to_excel(status_summary_file_path, index=False)
 
-    # Totals Summary for the category
-    total_validate = category_df[category_df['PROPOSED_ACTION'] == 'VALIDATE_EFFECTIVITY'].shape[0]
-    total_add = category_df[category_df['PROPOSED_ACTION'] == 'ADD_EFFECTIVITY'].shape[0]
-    total_status = category_df['Status'].value_counts().reindex(status_categories, fill_value=0).to_dict()
+    # Totals Summary for the fleet
+    total_validate = fleet_df[fleet_df['PROPOSED_ACTION'] == 'VALIDATE_EFFECTIVITY'].shape[0]
+    total_add = fleet_df[fleet_df['PROPOSED_ACTION'] == 'ADD_EFFECTIVITY'].shape[0]
+    total_status = fleet_df['Status'].value_counts().reindex(status_categories, fill_value=0).to_dict()
 
     totals_df = pd.DataFrame({
         'Add Effectivity': [total_add],
@@ -71,63 +76,30 @@ def create_category_summaries(category):
     for status in status_categories:
         totals_df[status] = [total_status[status]]
 
-    category_totals_file_path = os.path.join(output_folder, f"{original_file_name.split('.')[0]}_{category}_totals.xlsx")
+    # Count categories, replacing specified categories with 'OTHER'
+    category_counts = fleet_df['CATEGORY'].value_counts().to_dict()
+    totals_df['OTHER'] = category_counts.get('OTHER', 0)  # Add count for 'OTHER'
+    
+    # Remove original categories that were lumped into 'OTHER'
+    for category in ['KIT', 'GEN-CON', 'SOFTWARE']:
+        if category in category_counts:
+            totals_df['OTHER'] += category_counts[category]  # Add to 'OTHER'
+            del category_counts[category]  # Remove original category count
+
+    for category in category_counts:
+        totals_df[category] = [category_counts[category]]
+
+    category_totals_file_path = os.path.join(output_folder, f"{fleet}_TOTALS.xlsx")
     totals_df.to_excel(category_totals_file_path, index=False)
 
     return action_summary_file_path, status_summary_file_path, category_totals_file_path
 
-# Create summaries for each category
-for category in categories:
-    action_summary_file_path, status_summary_file_path, category_totals_file_path = create_category_summaries(category)
-    print(f"Summary files for category '{category}' have been created:")
+# Create summaries for each fleet
+for fleet in fleets:
+    action_summary_file_path, status_summary_file_path, category_totals_file_path = create_fleet_summaries(fleet)
+    print(f"Summary files for fleet '{fleet}' have been created:")
     print(f" - {action_summary_file_path}")
     print(f" - {status_summary_file_path}")
     print(f" - {category_totals_file_path}")
 
-# Summary for all records by Action
-all_action_summary_df = pd.DataFrame()
-all_action_summary_df['AC'] = open_parts_df['AC'].unique()
-
-def count_action(ac_value, action):
-    return len(open_parts_df[(open_parts_df['AC'] == ac_value) & (open_parts_df['PROPOSED_ACTION'] == action)])
-
-all_action_summary_df['Add Effectivity'] = all_action_summary_df['AC'].apply(lambda x: count_action(x, 'ADD_EFFECTIVITY'))
-all_action_summary_df['Validate Effectivity'] = all_action_summary_df['AC'].apply(lambda x: count_action(x, 'VALIDATE_EFFECTIVITY'))
-all_action_summary_df['TOTAL'] = all_action_summary_df['Add Effectivity'] + all_action_summary_df['Validate Effectivity']
-
-all_action_summary_file_path = os.path.join(output_folder, original_file_name.split('.')[0] + '_all_action.xlsx')
-all_action_summary_df.to_excel(all_action_summary_file_path, index=False)
-
-# Summary for all records by Status
-status_categories = ['Initial', 'In-Work', 'Issue', 'Updated', 'Re-Opened', 'Validated', 'Complete']
-all_status_summary_df = df.groupby(['AC', 'Status']).size().unstack(fill_value=0).reindex(columns=status_categories, fill_value=0).reset_index()
-
-all_status_summary_file_path = os.path.join(output_folder, original_file_name.split('.')[0] + '_all_status.xlsx')
-all_status_summary_df.to_excel(all_status_summary_file_path, index=False)
-
-# Totals Sheet
-total_validate = df[df['PROPOSED_ACTION'] == 'VALIDATE_EFFECTIVITY'].shape[0]
-total_add = df[df['PROPOSED_ACTION'] == 'ADD_EFFECTIVITY'].shape[0]
-total_status = df['Status'].value_counts().reindex(status_categories, fill_value=0).to_dict()
-
-# Count each category in the 'CATEGORY' column
-category_counts = df['CATEGORY'].value_counts().reindex(categories, fill_value=0).to_dict()
-
-totals_df = pd.DataFrame({
-    'Add Effectivity': [total_add],
-    'Validate Effectivity': [total_validate]
-})
-
-for status in status_categories:
-    totals_df[status] = [total_status[status]]
-
-for category in categories:
-    totals_df[category] = [category_counts[category]]
-
-totals_file_path = os.path.join(output_folder, original_file_name.split('.')[0] + '_totals.xlsx')
-totals_df.to_excel(totals_file_path, index=False)
-
-print(f"Summary files have been created in the '{output_folder}' folder:")
-print(f" - {all_action_summary_file_path}")
-print(f" - {all_status_summary_file_path}")
-print(f" - {totals_file_path}")
+print(f"All summary files have been created in the '{output_folder}' folder.")

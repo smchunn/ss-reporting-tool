@@ -55,12 +55,18 @@ def create_fleet_category_summaries(fleet, category):
     action_summary_df['Validate Effectivity'] = action_summary_df['AC'].apply(lambda x: count_action(x, 'VALIDATE_EFFECTIVITY'))
     action_summary_df['TOTAL'] = action_summary_df['Add Effectivity'] + action_summary_df['Validate Effectivity']
 
+    # Sort the action summary DataFrame by 'AC' in ascending order
+    action_summary_df.sort_values(by='AC', ascending=True, inplace=True)
+
     action_summary_file_path = os.path.join(output_folder, f"{fleet}_{category}_ACTION.xlsx")
     action_summary_df.to_excel(action_summary_file_path, index=False)
 
     # Second Summary: Summary by Status
     status_categories = ['Initial', 'In-Work', 'Issue', 'Updated', 'Re-Opened', 'Validated', 'Complete']
     status_summary_df = fleet_category_df.groupby(['AC', 'Status']).size().unstack(fill_value=0).reindex(columns=status_categories, fill_value=0).reset_index()
+
+    # Sort the status summary DataFrame by 'AC' in ascending order
+    status_summary_df.sort_values(by='AC', ascending=True, inplace=True)
 
     status_summary_file_path = os.path.join(output_folder, f"{fleet}_{category}_STATUS.xlsx")
     status_summary_df.to_excel(status_summary_file_path, index=False)
