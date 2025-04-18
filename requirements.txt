@@ -8,7 +8,7 @@ pandas
 pyinstaller
 xlsxwriter
 fastexcel
-#https://github.com/smchunn/ss-api/archive/master.zip
-git+https://github.com/smchunn/ss-api.git@dev-rename-sheet#egg=ss-api
+https://github.com/smchunn/ss-api/archive/master.zip
+#git+https://github.com/smchunn/ss-api.git@dev-rename-sheet#egg=ss-api
 
 
