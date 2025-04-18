@@ -20,7 +20,7 @@ get:
 	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A320_config.toml
 
 set:
-	$(VENV)/bin/python ./ss_uploader.py set -c ./data/A319_config_category.toml
+	$(VENV)/bin/python ./ss_uploader.py set -c ./data/config.toml
 
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
@@ -31,12 +31,6 @@ feedback_engine: install
 split: install
 	$(VENV)/bin/python ./split_excel.py
 	$(VENV)/bin/python ./reformat_sheets.py
-
-hold:
-	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A320_config_test.toml
-	$(VENV)/bin/python ./reformat_sheets.py
-	$(VENV)/bin/python ./create_reformat_config.py A320_config_test.toml
-	$(VENV)/bin/python ./ss_uploader.py reformat -c ./data/reformat_config.toml
 
 reformat: install
 	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A321_config.toml
@@ -51,10 +45,24 @@ dedupe:
 	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/A319_config_category.toml
 
 test: 
-	$(VENV)/bin/python ./create_config.py
+	$(VENV)/bin/python ./order_excel.py
 
 verify:
 	$(VENV)/bin/python ./count_rows.py
+
+summary:
+	$(VENV)/bin/python ./ss_uploader.py get -c ./data/All_config_category.toml
+	$(VENV)/bin/python ./create_summary.py
+	$(VENV)/bin/python ./create_summary_category.py
+
+refresh:
+	$(VENV)/bin/python ./ss_uploader.py refresh_summary -c ./data/config.toml
+
+config:
+	$(VENV)/bin/python ./create_config.py
+
+get_ids: install
+	$(VENV)/bin/python ./ss_uploader.py get_sheetids -c ./data/All_config_category.toml
 
 clean:
 	rm -rf $(VENV)
