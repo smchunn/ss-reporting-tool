@@ -565,6 +565,57 @@ def update_single_sheet(table):
 
     print(f"Columns updated for table: {table.name}")
 
+def lock_columns():
+    
+    print("Locking columns ...")
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit all table processing tasks to the executor
+        futures = [
+
+            executor.submit(lock_columns_single_sheet, table) for table in Table.config.tables
+
+        ]
+
+        # Collect results as they complete
+        for x, _ in enumerate(concurrent.futures.as_completed(futures)):
+            pass
+            print(f"thread no. {x} returned")
+
+
+def lock_columns_single_sheet(table):
+    print(f"Locking columns for table: {table.name} (ID: {table.id})")
+    
+    # Retrieve the columns from the specified sheet
+    columns = ss_api.get_columns(sheet_id=table.id)
+    if isinstance(columns, dict):
+        columns = columns.get("data", None)
+    if not columns:
+        print(f"Error getting columns for '{table.name} (ID: {table.id})'")
+        return
+
+    # Prepare updates for locking columns except for "Status," "Assignment," and "Notes"
+    updates = {}
+    excluded_columns = {"Status", "Assignment", "Notes"}  # Set of columns to exclude
+    if isinstance(columns, list):
+        for col in columns:
+            if isinstance(col, dict) and "title" in col:
+                title = col["title"]
+                # Check if the column title is not in the excluded list
+                if title not in excluded_columns:
+                    id = col["id"]
+                    updates[id] = {
+                        "title": title,
+                        "locked": True  # Set the locked attribute to True
+                    }
+                    print(f"Column '{title}' (ID: {id}) will be locked.")
+
+    # Apply the updates to lock the specified columns
+    for id, update in updates.items():
+        ss_api.update_columns(sheet_id=table.id, column_id=id, column_update=update)
+
+    print(f"Columns locked for table: {table.name}")
+
+
 
 def make_summary():
     print("Creating blank summary sheet in folder...")
@@ -818,6 +869,8 @@ def main():
         feedback_loop_engine()
     elif Table.config.function == "reformat":
         reformat_sheet()
+    elif Table.config.function == "lock":
+        lock_columns()
     elif Table.config.function == "get_sheetids":
         get_sheetids()
     elif Table.config.function == "refresh_summary":

@@ -50,6 +50,9 @@ test:
 verify:
 	$(VENV)/bin/python ./count_rows.py
 
+lock:
+	$(VENV)/bin/python ./ss_uploader.py lock -c ./data/All_config_category.toml
+
 summary:
 	$(VENV)/bin/python ./ss_uploader.py get -c ./data/All_config_category.toml
 	$(VENV)/bin/python ./create_summary.py
