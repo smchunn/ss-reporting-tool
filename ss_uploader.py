@@ -710,68 +710,6 @@ def feedback_loop():
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
 
-def summary_feedback():
-    """make smartsheet table match newly generated excel table without changing _id's"""
-    print("Starting summary feedback ...")
-
-    def update_summary_sheet(table: Table):
-        print(f"Getting {table.name} from Smartsheet")
-        table.load_from_ss()
-        print(table.data.shape)
-        ss_df = table.data  # current Smartsheet records
-        logging.debug(f"\n--Smartsheet data--\n{ss_df.head()}")
-
-        # Load new records from Excel
-        new_df = pl.read_excel(
-            table.src,
-            schema_overrides=ss_df.select(
-                [col for col in ss_df.columns if not col.startswith("_")]
-            ).collect_schema(),
-        )
-        logging.debug(f"\n--Excel data--\n{new_df.head()}")
-
-        # Ensure both dataframes have the same number of rows
-        min_rows = min(ss_df.shape[0], new_df.shape[0])
-        logging.debug(f"Comparing up to {min_rows} rows.")
-
-        if ss_df.shape[0] == 1 and ss_df.shape[0] == new_df.shape[0]:
-            joined_df = new_df.join(ss_df, on=pl.lit(True), how="full")
-            cols_to_drop = [
-                col for col in joined_df.columns if col.endswith("_right")
-            ]
-            filtered_df = joined_df.drop(cols_to_drop)
-            table.data = filtered_df
-            table.update_ss()
-        else:
-            joined_df = new_df.join(ss_df, on=["AC"], how="full")
-            cols_to_drop = [
-                col for col in joined_df.columns if col.endswith("_right")
-            ]
-            filtered_df = joined_df.drop(cols_to_drop)
-            table.data = filtered_df
-            table.update_ss()
-
-    # Example usage
-    # table = Table(name="ExampleTable", src="example.xlsx")
-    # update_summary_sheet(table)
-
-    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-        for table in Table.config.tables:
-            update_summary_sheet(table)
-    else:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submit all table processing tasks to the executor
-            futures = [
-                executor.submit(update_summary_sheet, table)
-                for table in Table.config.tables
-            ]
-
-            # Collect results as they complete
-            for x, _ in enumerate(concurrent.futures.as_completed(futures)):
-                print(f"Thread no. {x} returned")
-
- 
-
 
 def feedback_loop_engine():
     print("Starting ...")
@@ -956,8 +894,6 @@ def main():
         remove_dupes_engine()
     elif Table.config.function == "feedback":
         feedback_loop()
-    elif Table.config.function == "summary_feedback":
-        summary_feedback()
     elif Table.config.function == "feedback_engine":
         feedback_loop_engine()
     elif Table.config.function == "reformat":
