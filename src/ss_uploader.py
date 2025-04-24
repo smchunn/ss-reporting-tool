@@ -206,8 +206,7 @@ class Table:
         if (
             isinstance(self.sheet_col_to_id_map, dict)
             and isinstance(self.sheet_id_to_col_map, dict)
-            and (not cols or not isinstance(cols, list))
-            and isinstance(rows, pl.Expr)
+
         ):
             data = [
                 {
