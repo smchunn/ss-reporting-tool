@@ -235,7 +235,7 @@ class Table:
             and isinstance(rows, pl.Expr)
         ):
 
-            data = [
+                data = [
                 {
                     "toTop": "true",
                     "cells": [
