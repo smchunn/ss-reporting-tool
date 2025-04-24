@@ -235,6 +235,7 @@ class Table:
             and isinstance(rows, pl.Expr)
         ):
 
+
                 data = [
                 {
                     "toTop": "true",
@@ -611,6 +612,7 @@ def make_summary():
     print("Blank summary sheet created in folder.")
 
 
+
 def feedback_loop():
     print("Starting ...")
 
@@ -869,6 +871,7 @@ def feedback_loop_engine():
             # Collect results as they complete
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
+
 
 
 def refresh_summary():
