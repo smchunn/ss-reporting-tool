@@ -206,8 +206,7 @@ class Table:
         if (
             isinstance(self.sheet_col_to_id_map, dict)
             and isinstance(self.sheet_id_to_col_map, dict)
-            and (not cols or not isinstance(cols, list))
-            and isinstance(rows, pl.Expr)
+
         ):
             data = [
                 {
@@ -247,11 +246,11 @@ class Table:
                 }
                 for row in self.data.filter(rows).iter_rows(named=True)
             ]
-            if data:
-                print(f"exporting {self.name}({self.id})")
-                ss_api.add_rows(self.id, data)
-                Table.config.serialize()
-                return len(data)
+                if data:
+                    print(f"exporting {self.name}({self.id})")
+                    ss_api.add_rows(self.id, data)
+                    Table.config.serialize()
+                    return len(data)
         return 0
 
     def delete_ss(self, rows=None) -> int:
