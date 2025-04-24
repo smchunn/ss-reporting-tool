@@ -25,6 +25,9 @@ set:
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
 
+summary_feedback:
+	$(VENV)/bin/python ./ss_uploader.py summary_feedback -c ./data/summary_config.toml
+
 feedback_engine: install
 	$(VENV)/bin/python ./ss_uploader.py feedback_engine -c ./data/A320_engine_config.toml
 

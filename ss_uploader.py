@@ -181,9 +181,8 @@ class Table:
                 row_data[column_title] = cell.get("value", None)
             data.append(row_data)
 
-        self.data = pl.DataFrame(data, infer_schema_length=None).filter(
-            col("AC").is_not_null()
-        )
+        self.data = pl.DataFrame(data, infer_schema_length=None)
+        #.filter(col("AC").is_not_null())
 
     def load_from_file(self) -> None:
         self.data = pl.read_csv(self.src, separator=chr(31))
@@ -207,10 +206,19 @@ class Table:
             print(f"  {self.name}({self.id}): new table loaded")
         Table.config.serialize()
 
-    def update_ss(self, cols: list) -> int:
-        if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
-            self.sheet_id_to_col_map, dict
+    def update_ss(self, rows=None, cols=None) -> int:
+        if not rows:
+            print("not rows")
+            rows = pl.lit(True)
+        if not cols:
+            print("not cols")
+            cols = list(self.sheet_col_to_id_map.keys())
+        if (
+            isinstance(self.sheet_col_to_id_map, dict)
+            and isinstance(self.sheet_id_to_col_map, dict)
         ):
+            print("long if")
+            print(self.data.filter(rows))
             data = [
                 {
                     "id": row["_id"],
@@ -220,14 +228,16 @@ class Table:
                         if col in cols
                     ],
                 }
-                for row in self.data.filter("_UPDATE").iter_rows(named=True)
+                for row in self.data.filter(rows).iter_rows(named=True)
             ]
             if data:
+                print(data)
                 print(f"exporting {self.name}({self.id})")
                 ss_api.update_sheet(self.id, data)
                 Table.config.serialize()
                 return len(data)
         return 0
+ 
 
     def insert_ss(self) -> int:
         if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
@@ -390,30 +400,6 @@ def rename_single_sheet(table: Table):
     print(f"renaming {table.target_id}...")
     ss_api.rename_sheet(table.target_id, table.name)
     print("done...")
-
-def refresh_summary():
-    print("Starting ...")
-    set_sheet()
-
-    # Clear sheets
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(clear_single_sheet, table) for table in Table.config.tables]
-    concurrent.futures.wait(futures)
-    
-    # Move sheets
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(move_single_sheet, table) for table in Table.config.tables]
-    concurrent.futures.wait(futures)
-
-    # Delete sheets
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(delete_single_sheet, table) for table in Table.config.tables]
-    concurrent.futures.wait(futures)
-
-    #Rename sheets
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(rename_single_sheet, table) for table in Table.config.tables]
-    concurrent.futures.wait(futures)
 
 
 def update_sheet():
@@ -725,6 +711,68 @@ def feedback_loop():
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
 
+def summary_feedback():
+    """make smartsheet table match newly generated excel table without changing _id's"""
+    print("Starting summary feedback ...")
+
+    def update_summary_sheet(table: Table):
+        print(f"Getting {table.name} from Smartsheet")
+        table.load_from_ss()
+        print(table.data.shape)
+        ss_df = table.data  # current Smartsheet records
+        logging.debug(f"\n--Smartsheet data--\n{ss_df.head()}")
+
+        # Load new records from Excel
+        new_df = pl.read_excel(
+            table.src,
+            schema_overrides=ss_df.select(
+                [col for col in ss_df.columns if not col.startswith("_")]
+            ).collect_schema(),
+        )
+        logging.debug(f"\n--Excel data--\n{new_df.head()}")
+
+        # Ensure both dataframes have the same number of rows
+        min_rows = min(ss_df.shape[0], new_df.shape[0])
+        logging.debug(f"Comparing up to {min_rows} rows.")
+
+        if ss_df.shape[0] == 1 and ss_df.shape[0] == new_df.shape[0]:
+            joined_df = new_df.join(ss_df, on=pl.lit(True), how="full")
+            cols_to_drop = [
+                col for col in joined_df.columns if col.endswith("_right")
+            ]
+            filtered_df = joined_df.drop(cols_to_drop)
+            table.data = filtered_df
+            table.update_ss()
+        else:
+            joined_df = new_df.join(ss_df, on=["AC"], how="full")
+            cols_to_drop = [
+                col for col in joined_df.columns if col.endswith("_right")
+            ]
+            filtered_df = joined_df.drop(cols_to_drop)
+            table.data = filtered_df
+            table.update_ss()
+
+    # Example usage
+    # table = Table(name="ExampleTable", src="example.xlsx")
+    # update_summary_sheet(table)
+
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+        for table in Table.config.tables:
+            update_summary_sheet(table)
+    else:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Submit all table processing tasks to the executor
+            futures = [
+                executor.submit(update_summary_sheet, table)
+                for table in Table.config.tables
+            ]
+
+            # Collect results as they complete
+            for x, _ in enumerate(concurrent.futures.as_completed(futures)):
+                print(f"Thread no. {x} returned")
+
+ 
+
 
 def feedback_loop_engine():
     print("Starting ...")
@@ -840,12 +888,6 @@ def feedback_loop_engine():
             # Collect results as they complete
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
-    
-def get_sheetids():
-    sheet_ids = ss_api.get_sheetid('3590285109290884')
-    if sheet_ids:
-        for name, sheet_id in sheet_ids.items():
-            print(f'Sheet Name: {name}, Sheet ID: {sheet_id}')
 
 
 
@@ -865,16 +907,14 @@ def main():
         remove_dupes_engine()
     elif Table.config.function == "feedback":
         feedback_loop()
+    elif Table.config.function == "summary_feedback":
+        summary_feedback()
     elif Table.config.function == "feedback_engine":
         feedback_loop_engine()
     elif Table.config.function == "reformat":
         reformat_sheet()
     elif Table.config.function == "lock":
         lock_columns()
-    elif Table.config.function == "get_sheetids":
-        get_sheetids()
-    elif Table.config.function == "refresh_summary":
-        refresh_summary()
 
 
 if __name__ == "__main__":
