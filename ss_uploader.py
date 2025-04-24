@@ -4,7 +4,7 @@ import os, logging
 import toml, json
 from datetime import datetime
 import ss_api
-import concurrent.futures
+import concurrent.futures, threading
 
 import polars as pl
 from polars import col, lit
@@ -16,10 +16,6 @@ start_time = datetime.now()
 
 
 logging.basicConfig(level=logging.INFO)
-
-class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
-    def __init__(self, _dict=dict, preserve=False):
-        super(TomlLineBreakPreservingEncoder, self).__init__(_dict, preserve)
 
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
@@ -39,13 +35,10 @@ class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
         return retval
 
 
-
 class Config:
-
 
     def __init__(self) -> None:
         import argparse
-
 
         argparser = argparse.ArgumentParser(add_help=True)
         argparser.add_argument("func", type=str, help="function to run: ")
@@ -61,9 +54,7 @@ class Config:
         argparser.add_argument("--debug", action="store_true")
         args = argparser.parse_args()
 
-
         self.function = args.func
-
 
         self.path = os.path.abspath(os.path.expanduser(args.config))
 
@@ -120,7 +111,9 @@ class Config:
                 for k2, v2 in v1.items():
                     if k2 in table_dict:
                         v2["id"] = table_dict[k2].id
-                        if not table_dict[k2].update_refresh: #not sure this and the next line are necessary
+                        if not table_dict[
+                            k2
+                        ].update_refresh:  # not sure this and the next line are necessary
                             table_dict[k2].update_refresh
                         v2["date"] = table_dict[k2].last_update
 
@@ -175,7 +168,6 @@ class Table:
             row_data["_id"] = row["id"]
             row_data["_created"] = row["createdAt"]
             row_data["_modified"] = row["modifiedAt"]
-            # row_data["AUDIT_BY"] = row["modifiedBy"]
             for cell in row["cells"]:
                 column_title = self.sheet_id_to_col_map[cell["columnId"]]
                 row_data[column_title] = cell.get("value", None)
@@ -214,6 +206,8 @@ class Table:
         if (
             isinstance(self.sheet_col_to_id_map, dict)
             and isinstance(self.sheet_id_to_col_map, dict)
+            and (not cols or not isinstance(cols, list))
+            and isinstance(rows, pl.Expr)
         ):
             data = [
                 {
@@ -234,11 +228,13 @@ class Table:
         return 0
  
 
-    def insert_ss(self) -> int:
-        if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
-            self.sheet_id_to_col_map, dict
+    def insert_ss(self, rows=None) -> int:
+        if (
+            isinstance(self.sheet_col_to_id_map, dict)
+            and isinstance(self.sheet_id_to_col_map, dict)
+            and isinstance(rows, pl.Expr)
         ):
-            for row in self.data.filter(col("_INSERT")).iter_rows(named=True):
+
 
                 data = [
                 {
@@ -249,7 +245,7 @@ class Table:
                         if col in self.sheet_col_to_id_map and val
                     ],
                 }
-                for row in self.data.filter(col("_INSERT")).iter_rows(named=True)
+                for row in self.data.filter(rows).iter_rows(named=True)
             ]
             if data:
                 print(f"exporting {self.name}({self.id})")
@@ -258,53 +254,88 @@ class Table:
                 return len(data)
         return 0
 
-    def delete_ss(self) -> int:
-        if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
-            self.sheet_id_to_col_map, dict
+    def delete_ss(self, rows=None) -> int:
+        if (
+            isinstance(self.sheet_col_to_id_map, dict)
+            and isinstance(self.sheet_id_to_col_map, dict)
+            and isinstance(rows, pl.Expr)
         ):
 
-            data = [
-                row["_id"]
-                for row in self.data.filter(col("_DELETE")).iter_rows(named=True)
-            ]
+            data = [row["_id"] for row in self.data.filter(rows).iter_rows(named=True)]
             if data:
                 print(f"deleting from {self.name}({self.id})")
                 ss_api.delete_rows(self.id, data)
+                self.data.remove(rows)
                 Table.config.serialize()
                 return len(data)
         return 0
 
+
 def get_sheet():
+    def _get_sheet(table: Table):
+        print(f"Getting {table.name} as xlsx")
+        save_path = os.path.join(
+            Table.config.data_dir, f"{table.name}.xlsx"
+        )  # Use config_dir
+        ss_api.get_sheet_as_xlsx(table.id, save_path)
+        print(f"Saved {table.name} to {save_path}")
+
     print("Starting ...")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit all table processing tasks to the executor
-        futures = [
-            executor.submit(get_single_sheet, table) for table in Table.config.tables
-        ]
-
+        futures = [executor.submit(_get_sheet, table) for table in Table.config.tables]
 
         # Collect results as they complete
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
             print(f"thread no. {x} returned")
 
 
-def get_single_sheet(table: Table):
-    print(f"Getting {table.name} as xlsx")
-    save_path = os.path.join(Table.config.data_dir, f"{table.name}.xlsx")  # Use config_dir
-    ss_api.get_sheet_as_xlsx(table.id, save_path)
-    print(f"Saved {table.name} to {save_path}")
-
-
 def set_sheet():
+    def _set_sheet(table: Table):
+        print(f"starting {table.name}...")
+
+        if not table.id:
+            print(f"No existing table, uploading {table.src} to {table.name}")
+            result = ss_api.import_xlsx_sheet(
+                sheet_name=table.name,
+                filepath=os.path.join(table.src),
+                folder_id=table.parent_id if table.parent_id else None,
+            )
+
+            if result:
+                table.id = str(result["result"]["id"])
+                print(f"  {table.name}({table.id}): new table loaded")
+                return ("new_id", table.name, table.id)
+
+        else:
+            result = ss_api.import_xlsx_sheet(
+                sheet_name=f"TMP_{table.name}",
+                filepath=table.src,
+                folder_id=table.parent_id if table.parent_id else None,
+            )
+
+            if not result:
+                return
+            if "message" in result and result["message"] != "SUCCESS":
+                print(result["message"])
+                return
+            import_sheet_id = result["result"]["id"]
+            target_sheet_id = table.id
+            if not import_sheet_id or not target_sheet_id:
+                return
+            ss_api.clear_sheet(target_sheet_id)
+            ss_api.move_rows(target_sheet_id, import_sheet_id)
+            ss_api.delete_sheet(import_sheet_id)
+
+        Table.config.serialize()
+        print("done...")
+
     print("Starting ...")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit all table processing tasks to the executor
-        futures = [
-            executor.submit(set_single_sheet, table) for table in Table.config.tables
-        ]
-        
+        futures = [executor.submit(_set_sheet, table) for table in Table.config.tables]
 
         # Collect results as they complete
         for x, _ in enumerate(concurrent.futures.as_completed(futures)):
@@ -312,41 +343,27 @@ def set_sheet():
             Table.config.serialize()
 
 
-def set_single_sheet(table: Table):
-    print(f"starting {table.name}...")
+def _clear_sheet(table: Table):
+    print(f"clearing {table.target_id}...")
+    ss_api.delete_all_rows(table.target_id)
+    print("done...")
 
-    if not table.id:
-        print(f"No existing table, uploading {table.src} to {table.name}")
-        result = ss_api.import_xlsx_sheet(
-            sheet_name=table.name,
-            filepath=os.path.join(table.src),
-            folder_id=table.parent_id if table.parent_id else None,
-        )
-        
-        if result:
-            table.id = str(result["result"]["id"])
-            print(f"  {table.name}({table.id}): new table loaded")
-            return ("new_id", table.name, table.id)
 
-    else:
-        result = ss_api.import_xlsx_sheet(
-            sheet_name=f"TMP_{table.name}", filepath=table.src, sheet_id = table.id
-        )
-        
-        if not result:
-            return
-        if "message" in result and result["message"] != "SUCCESS":
-            print(result["message"])
-            return
-        import_sheet_id = result["result"]["id"]
-        target_sheet_id = table.id
-        if not import_sheet_id or not target_sheet_id:
-            return
-        ss_api.clear_sheet(target_sheet_id)
-        ss_api.move_rows(target_sheet_id, import_sheet_id)
-        ss_api.delete_sheet(import_sheet_id)
+def _move_sheet(table: Table):
+    print(f"moving {table.name}...")
+    ss_api.move_rows(table.target_id, table.id)
+    print("done...")
 
-    Table.config.serialize()
+
+def _delete_sheet(table: Table):
+    print(f"deleting {table.name}...")
+    ss_api.delete_sheet(table.id)
+    print("done...")
+
+
+def _rename_sheet(table: Table):
+    print(f"renaming {table.target_id}...")
+    ss_api.rename_sheet(table.target_id, table.name)
     print("done...")
 
 
@@ -356,44 +373,29 @@ def reformat_sheet():
 
     # Clear sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(clear_single_sheet, table) for table in Table.config.tables]
+        futures = [
+            executor.submit(_clear_sheet, table) for table in Table.config.tables
+        ]
     concurrent.futures.wait(futures)
-    
+
     # Move sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(move_single_sheet, table) for table in Table.config.tables]
+        futures = [executor.submit(_move_sheet, table) for table in Table.config.tables]
     concurrent.futures.wait(futures)
 
     # Delete sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(delete_single_sheet, table) for table in Table.config.tables]
+        futures = [
+            executor.submit(_delete_sheet, table) for table in Table.config.tables
+        ]
     concurrent.futures.wait(futures)
 
-    #Rename sheets
+    # Rename sheets
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(rename_single_sheet, table) for table in Table.config.tables]
+        futures = [
+            executor.submit(_rename_sheet, table) for table in Table.config.tables
+        ]
     concurrent.futures.wait(futures)
-    
-
-def clear_single_sheet(table: Table):
-    print(f"clearing {table.target_id}...")
-    ss_api.delete_all_rows(table.target_id)
-    print("done...")
-
-def move_single_sheet(table: Table):
-    print(f"moving {table.name}...")
-    ss_api.move_rows(table.target_id, table.id)
-    print("done...")
-    
-def delete_single_sheet(table: Table):
-    print(f"deleting {table.name}...")
-    ss_api.delete_sheet(table.id)
-    print("done...")
-
-def rename_single_sheet(table: Table):
-    print(f"renaming {table.target_id}...")
-    ss_api.rename_sheet(table.target_id, table.name)
-    print("done...")
 
 
 def update_sheet():
@@ -401,13 +403,59 @@ def update_sheet():
     Updates the columns in the specified sheets to set "Status" as a dropdown
     and "Created Date" and "Modified Date" as date columns.
     """
+
+    def _update_sheet(table):
+        print(f"Updating columns for table: {table.name} (ID: {table.id})")
+        column_updates = {
+            "Status": {
+                "type": "PICKLIST",
+                "options": [
+                    "Initial",
+                    "Assigned",
+                    "In-Work",
+                    "Issue",
+                    "Updated",
+                    "Re-Opened",
+                    "Validated",
+                    "Complete",
+                ],
+            },
+            "Created Date": {"type": "DATE"},
+            "Modified Date": {"type": "DATE"},
+        }
+        columns = ss_api.get_columns(sheet_id=table.id)
+        if isinstance(columns, dict):
+            columns = columns.get("data", None)
+        if not columns:
+            print(f"error getting columns for '{table.name} (ID: {table.id})'")
+
+        updates = {}
+        if isinstance(columns, list):
+            for col in columns:
+                if isinstance(col, dict) and "title" in col:
+                    id = col["id"]
+                    title = col["title"]
+                    # use specific update if it exists
+                    if title in column_updates:
+                        updates[id] = {"title": title}
+                        updates[id].update(column_updates[title])
+
+                    # Default update to TEXT_NUMBER
+                    else:
+                        updates[id] = {
+                            "title": title,
+                            "type": "TEXT_NUMBER",
+                        }
+        for id, update in updates.items():
+            ss_api.update_columns(sheet_id=table.id, column_id=id, column_update=update)
+
+        print(f"Columns updated for table: {table.name}")
+
     print("Updating columns ...")
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit all table processing tasks to the executor
         futures = [
-
-            executor.submit(update_single_sheet, table) for table in Table.config.tables
-
+            executor.submit(_update_sheet, table) for table in Table.config.tables
         ]
 
         # Collect results as they complete
@@ -415,8 +463,9 @@ def update_sheet():
             pass
             print(f"thread no. {x} returned")
 
+
 def remove_dupes():
-    '''Remove duplicates from smartsheet reports'''
+    """Remove duplicates from smartsheet reports"""
     print("Removing smartsheet duplicates")
 
     def dedupe_single_sheet(table: Table):
@@ -425,19 +474,25 @@ def remove_dupes():
         print(table.data.shape)
         ss_df = table.data  # current smartsheet records
         logging.debug(f"\n--ss data--\n{ss_df.head()}")
-    
+
         # Create a new column "_DELETE" initialized to False
-        ss_df = ss_df.with_columns(pl.lit(False).alias("_DELETE"))
-        
+        # ss_df = ss_df.with_columns(pl.lit(False).alias("_DELETE"))
+
         # Use the .with_columns method to conditionally set "_DELETE" to True
-        ss_df = ss_df.with_columns(
-            pl.struct("AC", "FLEET", "PN","MAIN_PN", "VENDOR").is_first_distinct()
+        # ss_df = ss_df.with_columns(
+        #     pl.struct("AC", "FLEET", "PN", "MAIN_PN", "VENDOR")
+        #     .is_first_distinct()
+        #     .not_()
+        #     .alias("_DELETE")
+        # )
+        rows_to_delete = (
+            pl.struct("AC", "FLEET", "PN", "NHA", "TOP", "LEVEL")
+            .is_first_distinct()
             .not_()
-            .alias("_DELETE")
         )
-    
+
         table.data = ss_df
-        num_delete = table.delete_ss()
+        num_delete = table.delete_ss(rows=rows_to_delete)
         print(f"{table.name} Deleted rows: {num_delete}")
 
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
@@ -454,10 +509,11 @@ def remove_dupes():
 
             # Collect results as they complete
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
-                print(f"thread no. {x} returned")   
+                print(f"thread no. {x} returned")
+
 
 def remove_dupes_engine():
-    '''Remove duplicates from smartsheet reports'''
+    """Remove duplicates from smartsheet reports"""
     print("Removing smartsheet duplicates")
 
     def dedupe_single_sheet_engine(table: Table):
@@ -466,19 +522,19 @@ def remove_dupes_engine():
         print(table.data.shape)
         ss_df = table.data  # current smartsheet records
         logging.debug(f"\n--ss data--\n{ss_df.head()}")
-    
+
         # Create a new column "_DELETE" initialized to False
         ss_df = ss_df.with_columns(pl.lit(False).alias("_DELETE"))
-        
+
         # Use the .with_columns method to conditionally set "_DELETE" to True
-        ss_df = ss_df.with_columns(
-            pl.struct("AC", "FLEET", "PN", "NHA", "TOP", "LEVEL").is_first_distinct()
+        rows_to_delete = (
+            pl.struct("AC", "FLEET", "PN", "NHA", "TOP", "LEVEL")
+            .is_first_distinct()
             .not_()
-            .alias("_DELETE")
         )
-    
+
         table.data = ss_df
-        num_delete = table.delete_ss()
+        num_delete = table.delete_ss(rows=rows_to_delete)
         print(f"{table.name} Deleted rows: {num_delete}")
 
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
@@ -495,65 +551,53 @@ def remove_dupes_engine():
 
             # Collect results as they complete
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
-                print(f"thread no. {x} returned")   
+                print(f"thread no. {x} returned")
 
-
-def update_single_sheet(table):
-    print(f"Updating columns for table: {table.name} (ID: {table.id})")
-    column_updates = {
-        "Status": {
-            "type": "PICKLIST",
-            "options": [
-                "Initial",
-                "Assigned",
-                "In-Work",
-                "Issue",
-                "Updated",
-                "Re-Opened",
-                "Validated",
-                "Complete",
-            ],
-        },
-        "Created Date": {"type": "DATE"},
-        "Modified Date": {"type": "DATE"},
-    }
-    columns = ss_api.get_columns(sheet_id=table.id)
-    if isinstance(columns, dict):
-        columns = columns.get("data", None)
-    if not columns:
-        print(f"error getting columns for '{table.name} (ID: {table.id})'")
-
-    updates = {}
-    if isinstance(columns, list):
-        for col in columns:
-            if isinstance(col, dict) and "title" in col:
-                id = col["id"]
-                title = col["title"]
-                # use specific update if it exists
-                if title in column_updates:
-                    updates[id] = {"title": title}
-                    updates[id].update(column_updates[title])
-
-                # Default update to TEXT_NUMBER
-                else:
-                    updates[id] = {
-                        "title": title,
-                        "type": "TEXT_NUMBER",
-                    }
-    for id, update in updates.items():
-        ss_api.update_columns(sheet_id=table.id, column_id=id, column_update=update)
-
-    print(f"Columns updated for table: {table.name}")
 
 def lock_columns():
-    
+
+    def _lock_columns(table):
+        print(f"Locking columns for table: {table.name} (ID: {table.id})")
+
+        # Retrieve the columns from the specified sheet
+        columns = ss_api.get_columns(sheet_id=table.id)
+        if isinstance(columns, dict):
+            columns = columns.get("data", None)
+        if not columns:
+            print(f"Error getting columns for '{table.name} (ID: {table.id})'")
+            return
+
+        # Prepare updates for locking columns except for "Status," "Assignment," and "Notes"
+        updates = {}
+        excluded_columns = {
+            "Status",
+            "Assignment",
+            "Notes",
+        }  # Set of columns to exclude
+        if isinstance(columns, list):
+            for col in columns:
+                if isinstance(col, dict) and "title" in col:
+                    title = col["title"]
+                    # Check if the column title is not in the excluded list
+                    if title not in excluded_columns:
+                        id = col["id"]
+                        updates[id] = {
+                            "title": title,
+                            "locked": True,  # Set the locked attribute to True
+                        }
+                        print(f"Column '{title}' (ID: {id}) will be locked.")
+
+        # Apply the updates to lock the specified columns
+        for id, update in updates.items():
+            ss_api.update_columns(sheet_id=table.id, column_id=id, column_update=update)
+
+        print(f"Columns locked for table: {table.name}")
+
     print("Locking columns ...")
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit all table processing tasks to the executor
         futures = [
-
-            executor.submit(lock_columns_single_sheet, table) for table in Table.config.tables
-
+            executor.submit(_lock_columns, table) for table in Table.config.tables
         ]
 
         # Collect results as they complete
@@ -562,43 +606,17 @@ def lock_columns():
             print(f"thread no. {x} returned")
 
 
-def lock_columns_single_sheet(table):
-    print(f"Locking columns for table: {table.name} (ID: {table.id})")
-    
-    # Retrieve the columns from the specified sheet
-    columns = ss_api.get_columns(sheet_id=table.id)
-    if isinstance(columns, dict):
-        columns = columns.get("data", None)
-    if not columns:
-        print(f"Error getting columns for '{table.name} (ID: {table.id})'")
-        return
+def make_summary():
+    print("Creating blank summary sheet in folder...")
+    # ss_api.create_blank_summary_sheet_in_folder(folder_id)
+    print("Blank summary sheet created in folder.")
 
-    # Prepare updates for locking columns except for "Status," "Assignment," and "Notes"
-    updates = {}
-    excluded_columns = {"Status", "Assignment", "Notes"}  # Set of columns to exclude
-    if isinstance(columns, list):
-        for col in columns:
-            if isinstance(col, dict) and "title" in col:
-                title = col["title"]
-                # Check if the column title is not in the excluded list
-                if title not in excluded_columns:
-                    id = col["id"]
-                    updates[id] = {
-                        "title": title,
-                        "locked": True  # Set the locked attribute to True
-                    }
-                    print(f"Column '{title}' (ID: {id}) will be locked.")
 
-    # Apply the updates to lock the specified columns
-    for id, update in updates.items():
-        ss_api.update_columns(sheet_id=table.id, column_id=id, column_update=update)
-
-    print(f"Columns locked for table: {table.name}")
 
 def feedback_loop():
     print("Starting ...")
 
-    def feedback_single_sheet(table: Table):
+    def _feedback_loop(table: Table):
         print(f"Getting {table.name} from smartsheet")
         table.load_from_ss()
         print(table.data.shape)
@@ -625,9 +643,7 @@ def feedback_loop():
         )
 
         # Filter out NO_ACTION rows before determining new records
-        new_records_df = new_df.filter(
-            col("PROPOSED_ACTION") != lit("NO_ACTION")
-        ).join(
+        new_records_df = new_df.filter(col("PROPOSED_ACTION") != lit("NO_ACTION")).join(
             ss_df, on=["AC", "FLEET", "MAIN_PN", "PN", "VENDOR"], how="anti"
         )
         logging.debug(
@@ -675,21 +691,20 @@ def feedback_loop():
         logging.debug(f"\n--table data--\n{df.head()}")
 
         table.data = df
-        num_update = table.update_ss(["Status"])
-        num_insert = table.insert_ss()
+        num_update = table.update_ss(rows=update_row & ~insert_row, cols=["Status"])
+        num_insert = table.insert_ss(rows=insert_row)
 
         print(f"{table.name}: {num_update} updated rows | {num_insert} inserted rows")
 
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         for table in Table.config.tables:
-            feedback_single_sheet(table)
+            _feedback_loop(table)
         pass
     else:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # Submit all table processing tasks to the executor
             futures = [
-                executor.submit(feedback_single_sheet, table)
-                for table in Table.config.tables
+                executor.submit(_feedback_loop, table) for table in Table.config.tables
             ]
 
             # Collect results as they complete
@@ -762,10 +777,9 @@ def summary_feedback():
 def feedback_loop_engine():
     print("Starting ...")
 
-    def feedback_single_sheet_engine(table: Table):
+    def _feedback_loop_engine(table: Table):
         print(f"Getting {table.name} from smartsheet")
         table.load_from_ss()
-        print(table.data.shape)
         ss_df = table.data  # current smartsheet records
         logging.debug(f"\n--ss data--\n{ss_df.head()}")
         # new records from trax refresh
@@ -779,89 +793,78 @@ def feedback_loop_engine():
         # join the two sets
         duplicate_rows = ss_df.filter(
             ss_df.select(["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]).is_duplicated()
-                )
-        duplicate_pk_columns = duplicate_rows.select(["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"])
+        )
+        duplicate_pk_columns = duplicate_rows.select(
+            ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]
+        )
 
-        # Print the duplicate primary key columns
-        print(duplicate_pk_columns)
-        
         try:
             existing_records_df = ss_df.join(
                 new_df,
                 on=["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"],
                 validate="1:1",
             )
+            new_records_df = new_df.filter(
+                col("PROPOSED_ACTION") != lit("NO_ACTION")
+            ).join(ss_df, on=["AC", "FLEET", "PN", "NHA", "TOP"], how="anti")
+            full_set_df = pl.concat(
+                [existing_records_df, new_records_df], how="diagonal"
+            )
+
+            # Status conditions
+            status_initial = col("_id").is_null()
+
+            status_reopen = (col("Status") == lit("Updated")) & (
+                col("PROPOSED_ACTION_right") != lit("NO_ACTION")
+            )
+            status_complete = (
+                col("Status").is_in(
+                    ["Initial", "Assigned", "In-Work", "Issue", "Updated", "Re-Opened"]
+                )
+            ) & (col("PROPOSED_ACTION_right") == lit("NO_ACTION"))
+
+            status_err = col("PROPOSED_ACTION_right").is_null()
+
+            update_row = status_reopen | status_complete | status_err
+            insert_row = status_initial
+
+            df = full_set_df.with_columns(
+                pl.when(status_initial)
+                .then(col("Status"))
+                .when(status_reopen)
+                .then(lit("Re-Opened"))
+                .when(status_complete)
+                .then(lit("Complete"))
+                .when(status_err)
+                .then(lit("Error"))
+                .otherwise(col("Status"))
+                .alias("Status"),
+                pl.when(update_row & ~insert_row)
+                .then(True)
+                .otherwise(False)
+                .alias("_UPDATE"),
+                pl.when(insert_row).then(True).otherwise(False).alias("_INSERT"),
+            ).select([col for col in ss_df.columns] + ["_UPDATE"] + ["_INSERT"])
+
+            table.data = df
+            num_update = table.update_ss(["Status"])
+            num_insert = table.insert_ss()
+
+            print(
+                f"{table.name}: {num_update} updated rows | {num_insert} inserted rows"
+            )
         except Exception as e:
             print(e)
-        print(existing_records_df)
-        logging.debug(
-            f"\n--existing records({existing_records_df.shape})--\n{existing_records_df.head()}"
-        )
-        print(588)
-        # Filter out NO_ACTION rows before determining new records
-        new_records_df = new_df.filter(
-            col("PROPOSED_ACTION") != lit("NO_ACTION")
-        ).join(
-            ss_df, on=["AC", "FLEET", "PN", "NHA", "TOP"], how="anti"
-        )
-        logging.debug(
-            f"\n--new records (filtered)({new_records_df.shape})--\n{new_records_df.head()}"
-        )
-
-        full_set_df = pl.concat([existing_records_df, new_records_df], how="diagonal")
-        logging.debug(f"\n--full set--({full_set_df.shape})\n{full_set_df.head()}")
-
-        # Status conditions
-        status_initial = col("_id").is_null()
-
-        status_reopen = (col("Status") == lit("Updated")) & (
-            col("PROPOSED_ACTION_right") != lit("NO_ACTION")
-        )
-        status_complete = (
-            col("Status").is_in(
-                ["Initial", "Assigned", "In-Work", "Issue", "Updated", "Re-Opened"]
-            )
-        ) & (col("PROPOSED_ACTION_right") == lit("NO_ACTION"))
-
-        status_err = col("PROPOSED_ACTION_right").is_null()
-
-        update_row = status_reopen | status_complete | status_err
-        insert_row = status_initial
-
-        df = full_set_df.with_columns(
-            pl.when(status_initial)
-            .then(col("Status"))
-            .when(status_reopen)
-            .then(lit("Re-Opened"))
-            .when(status_complete)
-            .then(lit("Complete"))
-            .when(status_err)
-            .then(lit("Error"))
-            .otherwise(col("Status"))
-            .alias("Status"),
-            pl.when(update_row & ~insert_row)
-            .then(True)
-            .otherwise(False)
-            .alias("_UPDATE"),
-            pl.when(insert_row).then(True).otherwise(False).alias("_INSERT"),
-        ).select([col for col in ss_df.columns] + ["_UPDATE"] + ["_INSERT"])
-        logging.debug(f"\n--table data--\n{df.head()}")
-
-        table.data = df
-        num_update = table.update_ss(["Status"])
-        num_insert = table.insert_ss()
-
-        print(f"{table.name}: {num_update} updated rows | {num_insert} inserted rows")
 
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         for table in Table.config.tables:
-            feedback_single_sheet_engine(table)
+            _feedback_loop_engine(table)
         pass
     else:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # Submit all table processing tasks to the executor
             futures = [
-                executor.submit(feedback_single_sheet_engine, table)
+                executor.submit(_feedback_loop_engine, table)
                 for table in Table.config.tables
             ]
 
@@ -869,6 +872,75 @@ def feedback_loop_engine():
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
 
+
+
+def refresh_summary():
+    """make smartsheet table match newly generated excel table without changing _id's"""
+    print("Starting summary feedback ...")
+
+    def _refresh_summary(table: Table):
+        print(f"Getting {table.name} from Smartsheet")
+        table.load_from_ss()
+        print(table.data.shape)
+        ss_df = table.data  # current Smartsheet records
+        logging.debug(f"\n--Smartsheet data--\n{ss_df.head()}")
+
+        # Load new records from Excel
+        new_df = pl.read_excel(
+            table.src,
+            schema_overrides=ss_df.select(
+                [col for col in ss_df.columns if not col.startswith("_")]
+            ).collect_schema(),
+        )
+        logging.debug(f"\n--Excel data--\n{new_df.head()}")
+
+        # Ensure both dataframes have the same number of rows
+        min_rows = min(ss_df.shape[0], new_df.shape[0])
+        logging.debug(f"Comparing up to {min_rows} rows.")
+
+        if ss_df.shape[0] == 1 and ss_df.shape[0] == new_df.shape[0]:
+            joined_df = new_df.join(ss_df, on=pl.lit(True), how="full")
+            cols_to_drop = [col for col in joined_df.columns if col.endswith("_right")]
+            filtered_df = joined_df.drop(cols_to_drop)
+            table.data = filtered_df
+            table.update_ss()
+        else:
+            joined_df = new_df.join(ss_df, on=["AC"], how="full")
+            cols_to_drop = [col for col in joined_df.columns if col.endswith("_right")]
+            filtered_df = joined_df.drop(cols_to_drop)
+            table.data = filtered_df
+            table.update_ss()
+
+    # Example usage
+    # table = Table(name="ExampleTable", src="example.xlsx")
+    # update_summary_sheet(table)
+
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+        for table in Table.config.tables:
+            _refresh_summary(table)
+    else:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Submit all table processing tasks to the executor
+            futures = [
+                executor.submit(_refresh_summary, table)
+                for table in Table.config.tables
+            ]
+
+            # Collect results as they complete
+            for x, _ in enumerate(concurrent.futures.as_completed(futures)):
+                print(f"Thread no. {x} returned")
+
+
+def schedule(count, interval, func, *args, **kwargs):
+    def wrapper():
+        nonlocal count
+        if count > 0:
+            func(args, kwargs)
+            count -= 1
+            if count > 0:
+                threading.Timer(interval, wrapper).start()
+
+    wrapper()
 
 
 def main():
@@ -893,10 +965,11 @@ def main():
         reformat_sheet()
     elif Table.config.function == "lock":
         lock_columns()
+    elif Table.config.function == "refresh_summary":
+        refresh_summary()
 
 
 if __name__ == "__main__":
-
     main()
 
 
