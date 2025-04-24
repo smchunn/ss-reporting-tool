@@ -202,14 +202,13 @@ class Table:
         if not rows:
             rows = pl.lit(True)
         if not cols:
-            cols = [col for col in self.data.columns if not col.startswith("_")]
+            cols = list(self.sheet_col_to_id_map.keys())
         if (
             isinstance(self.sheet_col_to_id_map, dict)
             and isinstance(self.sheet_id_to_col_map, dict)
             and (not cols or not isinstance(cols, list))
             and isinstance(rows, pl.Expr)
         ):
-            cols = list(self.sheet_col_to_id_map.keys())
             data = [
                 {
                     "id": row["_id"],
@@ -222,7 +221,6 @@ class Table:
                 for row in self.data.filter(rows).iter_rows(named=True)
             ]
             if data:
-                print(data)
                 print(f"exporting {self.name}({self.id})")
                 ss_api.update_sheet(self.id, data)
                 Table.config.serialize()
@@ -789,7 +787,7 @@ def feedback_loop_engine():
                 [col for col in ss_df.columns if not col.startswith("_")]
             ).collect_schema(),
         )
-        # logging.debug(f"\n--excel data--\n{new_df.head()}")
+        logging.debug(f"\n--excel data--\n{new_df.head()}")
         # join the two sets
         duplicate_rows = ss_df.filter(
             ss_df.select(["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]).is_duplicated()
@@ -950,8 +948,6 @@ def main():
         set_sheet()
     elif Table.config.function == "update":
         update_sheet()
-    elif Table.config.function == "summary":
-        make_summary()
     elif Table.config.function == "dedupe":
         remove_dupes()
     elif Table.config.function == "dedupe_engine":
