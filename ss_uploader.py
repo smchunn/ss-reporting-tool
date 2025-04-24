@@ -208,17 +208,13 @@ class Table:
 
     def update_ss(self, rows=None, cols=None) -> int:
         if not rows:
-            print("not rows")
             rows = pl.lit(True)
         if not cols:
-            print("not cols")
             cols = list(self.sheet_col_to_id_map.keys())
         if (
             isinstance(self.sheet_col_to_id_map, dict)
             and isinstance(self.sheet_id_to_col_map, dict)
         ):
-            print("long if")
-            print(self.data.filter(rows))
             data = [
                 {
                     "id": row["_id"],
@@ -231,7 +227,6 @@ class Table:
                 for row in self.data.filter(rows).iter_rows(named=True)
             ]
             if data:
-                print(data)
                 print(f"exporting {self.name}({self.id})")
                 ss_api.update_sheet(self.id, data)
                 Table.config.serialize()
@@ -244,7 +239,6 @@ class Table:
             self.sheet_id_to_col_map, dict
         ):
             for row in self.data.filter(col("_INSERT")).iter_rows(named=True):
-                print(row)
 
             data = [
                 {
@@ -601,15 +595,6 @@ def lock_columns_single_sheet(table):
 
     print(f"Columns locked for table: {table.name}")
 
-
-
-def make_summary():
-    print("Creating blank summary sheet in folder...")
-    # ss_api.create_blank_summary_sheet_in_folder(folder_id)
-    print("Blank summary sheet created in folder.")
-
-
-
 def feedback_loop():
     print("Starting ...")
 
@@ -784,7 +769,6 @@ def feedback_loop_engine():
         ss_df = table.data  # current smartsheet records
         logging.debug(f"\n--ss data--\n{ss_df.head()}")
         # new records from trax refresh
-        print(570)
         new_df = pl.read_excel(
             table.src,
             schema_overrides=ss_df.select(
@@ -792,9 +776,6 @@ def feedback_loop_engine():
             ).collect_schema(),
         )
         logging.debug(f"\n--excel data--\n{new_df.head()}")
-        print(new_df)
-        print(ss_df)
-        print(577)
         # join the two sets
         duplicate_rows = ss_df.filter(
             ss_df.select(["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]).is_duplicated()
@@ -836,7 +817,6 @@ def feedback_loop_engine():
         status_reopen = (col("Status") == lit("Updated")) & (
             col("PROPOSED_ACTION_right") != lit("NO_ACTION")
         )
-        print(607)
         status_complete = (
             col("Status").is_in(
                 ["Initial", "Assigned", "In-Work", "Issue", "Updated", "Re-Opened"]
@@ -899,8 +879,6 @@ def main():
         set_sheet()
     elif Table.config.function == "update":
         update_sheet()
-    elif Table.config.function == "summary":
-        make_summary()
     elif Table.config.function == "dedupe":
         remove_dupes()
     elif Table.config.function == "dedupe_engine":
