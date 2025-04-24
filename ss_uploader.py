@@ -240,7 +240,7 @@ class Table:
         ):
             for row in self.data.filter(col("_INSERT")).iter_rows(named=True):
 
-            data = [
+                data = [
                 {
                     "toTop": "true",
                     "cells": [
