@@ -63,7 +63,7 @@ category:
 	$(VENV)/bin/python ./create_summary_category.py
 
 refresh:
-	$(VENV)/bin/python ./ss_uploader.py refresh_summary -c ./data/summary_config.toml
+
 
 config:
 	$(VENV)/bin/python ./create_config.py
