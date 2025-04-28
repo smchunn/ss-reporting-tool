@@ -25,9 +25,6 @@ set:
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
 
-summary_feedback:
-	$(VENV)/bin/python ./ss_uploader.py summary_feedback -c ./data/summary_config.toml
-
 feedback_engine: install
 	$(VENV)/bin/python ./ss_uploader.py feedback_engine -c ./data/A320_engine_config.toml
 
@@ -56,19 +53,20 @@ verify:
 lock:
 	$(VENV)/bin/python ./ss_uploader.py lock -c ./data/All_config_category.toml
 
-summary:
+summary: install
 	$(VENV)/bin/python ./ss_uploader.py get -c ./data/All_config_category.toml
 	$(VENV)/bin/python ./create_summary.py
 	$(VENV)/bin/python ./create_summary_category.py
+	$(VENV)/bin/python ./ss_uploader.py refresh_summary -c ./data/summary_config.toml
+
+category:
+	$(VENV)/bin/python ./create_summary_category.py
 
 refresh:
-	$(VENV)/bin/python ./ss_uploader.py refresh_summary -c ./data/config.toml
+
 
 config:
 	$(VENV)/bin/python ./create_config.py
-
-get_ids: install
-	$(VENV)/bin/python ./ss_uploader.py get_sheetids -c ./data/All_config_category.toml
 
 clean:
 	rm -rf $(VENV)

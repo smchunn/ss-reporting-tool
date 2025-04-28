@@ -247,11 +247,11 @@ class Table:
                 }
                 for row in self.data.filter(rows).iter_rows(named=True)
             ]
-            if data:
-                print(f"exporting {self.name}({self.id})")
-                ss_api.add_rows(self.id, data)
-                Table.config.serialize()
-                return len(data)
+                if data:
+                    print(f"exporting {self.name}({self.id})")
+                    ss_api.add_rows(self.id, data)
+                    Table.config.serialize()
+                    return len(data)
         return 0
 
     def delete_ss(self, rows=None) -> int:
@@ -711,11 +711,13 @@ def feedback_loop():
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
 
-def summary_feedback():
+
+
+def refresh_summary():
     """make smartsheet table match newly generated excel table without changing _id's"""
     print("Starting summary feedback ...")
 
-    def update_summary_sheet(table: Table):
+    def _refresh_summary(table: Table):
         print(f"Getting {table.name} from Smartsheet")
         table.load_from_ss()
         print(table.data.shape)
@@ -737,17 +739,13 @@ def summary_feedback():
 
         if ss_df.shape[0] == 1 and ss_df.shape[0] == new_df.shape[0]:
             joined_df = new_df.join(ss_df, on=pl.lit(True), how="full")
-            cols_to_drop = [
-                col for col in joined_df.columns if col.endswith("_right")
-            ]
+            cols_to_drop = [col for col in joined_df.columns if col.endswith("_right")]
             filtered_df = joined_df.drop(cols_to_drop)
             table.data = filtered_df
             table.update_ss()
         else:
             joined_df = new_df.join(ss_df, on=["AC"], how="full")
-            cols_to_drop = [
-                col for col in joined_df.columns if col.endswith("_right")
-            ]
+            cols_to_drop = [col for col in joined_df.columns if col.endswith("_right")]
             filtered_df = joined_df.drop(cols_to_drop)
             table.data = filtered_df
             table.update_ss()
@@ -758,12 +756,12 @@ def summary_feedback():
 
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         for table in Table.config.tables:
-            update_summary_sheet(table)
+            _refresh_summary(table)
     else:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # Submit all table processing tasks to the executor
             futures = [
-                executor.submit(update_summary_sheet, table)
+                executor.submit(_refresh_summary, table)
                 for table in Table.config.tables
             ]
 
@@ -771,8 +769,15 @@ def summary_feedback():
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"Thread no. {x} returned")
 
- 
 
+def schedule(count, interval, func, *args, **kwargs):
+    def wrapper():
+        nonlocal count
+        if count > 0:
+            func(args, kwargs)
+            count -= 1
+            if count > 0:
+                threading.Timer(interval, wrapper).start()
 
 def feedback_loop_engine():
     print("Starting ...")
@@ -957,8 +962,6 @@ def main():
         remove_dupes_engine()
     elif Table.config.function == "feedback":
         feedback_loop()
-    elif Table.config.function == "summary_feedback":
-        summary_feedback()
     elif Table.config.function == "feedback_engine":
         feedback_loop_engine()
     elif Table.config.function == "reformat":
