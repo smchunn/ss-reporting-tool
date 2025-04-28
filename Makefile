@@ -1,6 +1,7 @@
 VENV = .venv
 REQUIREMENTS = requirements.txt
 PYTHON = /usr/bin/env python3
+SRC = ./src
 
 .PHONY: install test clean run get
 
@@ -15,8 +16,8 @@ run:
 	$(VENV)/bin/python ./ss_uploader.py set -c ./data/config.toml
 	$(VENV)/bin/python ./ss_uploader.py update -c ./data/config.toml
 	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/config.toml
-	
-get: 
+
+get:
 	$(VENV)/bin/python ./ss_uploader.py get -c ./data/A320_config.toml
 
 set:
@@ -44,7 +45,7 @@ update:
 dedupe:
 	$(VENV)/bin/python ./ss_uploader.py dedupe -c ./data/A319_config_category.toml
 
-test: 
+test:
 	$(VENV)/bin/python ./order_excel.py
 
 verify:

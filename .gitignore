@@ -2,8 +2,6 @@
 .ignore
 .venv/**
 data
-Effectivity_Reports_Mod
-Effectivity_Reports_Split
 sheet.log
 config.toml
 __pycache__
