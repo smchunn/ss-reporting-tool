@@ -9,16 +9,16 @@ version = "0.0.1"
 description = "smartsheet reporting tool"
 authors = [{ name = "smchunn", email = "smchunn@icloud.com" }]
 dependencies = [
-  "openpyxl"
-  "smartsheet-python-sdk"
-  "toml"
-  "httpx"
-  "truststore"
-  "polars"
-  "pandas"
-  "pyinstaller"
-  "xlsxwriter"
-  "fastexcel"
+  "openpyxl",
+  "smartsheet-python-sdk",
+  "toml",
+  "httpx",
+  "truststore",
+  "polars",
+  "pandas",
+  "pyinstaller",
+  "xlsxwriter",
+  "fastexcel",
   "https://github.com/smchunn/ss-api/archive/master.zip"
 ]
 
