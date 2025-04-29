@@ -53,18 +53,15 @@ verify:
 
 lock:
 	$(VENV)/bin/python ./ss_uploader.py lock -c ./data/All_config_category.toml
-
-summary: install
-	$(VENV)/bin/python ./ss_uploader.py get -c ./data/All_config_category.toml
-	$(VENV)/bin/python ./create_summary.py
-	$(VENV)/bin/python ./create_summary_category.py
-	$(VENV)/bin/python ./ss_uploader.py refresh_summary -c ./data/summary_config.toml
-
+	
 category:
 	$(VENV)/bin/python ./create_summary_category.py
 
 refresh:
-
+	$(VENV)/bin/python ./src/ss_uploader.py get -c ./data/All_config_category.toml
+	$(VENV)/bin/python ./src/create_summary.py
+	$(VENV)/bin/python ./src/create_summary_category.py
+	$(VENV)/bin/python ./src/ss_uploader.py refresh_summary -c ./data/summary_config.toml
 
 config:
 	$(VENV)/bin/python ./create_config.py
