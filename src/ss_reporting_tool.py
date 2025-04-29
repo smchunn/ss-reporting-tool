@@ -1,47 +1,45 @@
+from src.Table import Table
+from src.Config import Config
+from src.api_wrapper import *
 import os, logging
-import toml, json
-import ss_api
-import concurrent.futures, threading
-import polars as pl
 from datetime import datetime
-from os.path import isfile
+import polars as pl
 from polars import col, lit
 from datetime import datetime, timezone
-from typing import List, Dict, Callable, Union
 
 
 start_time = datetime.now()
 
-
 logging.basicConfig(level=logging.INFO)
-
-
-
-
 
 
 def main():
     Table.config = Config()
+    cfg: Config = Table.config
+    all_tables = cfg.tables
+    ac_tables = [table for table in cfg.tables if table.tags.contains("ac")]
+    eng_tables = [table for table in cfg.tables if table.tags.contains("engine")]
+
     if Table.config.function == "get":
-        get_sheet()
+        get_sheet(all_tables, cfg)
     elif Table.config.function == "set":
-        set_sheet()
+        set_sheet(all_tables, cfg)
     elif Table.config.function == "update":
-        update_sheet()
+        update_sheet(all_tables, cfg)
     elif Table.config.function == "dedupe":
-        remove_dupes()
+        remove_duplicates(ac_tables, cfg, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
     elif Table.config.function == "dedupe_engine":
-        remove_dupes_engine()
+        remove_duplicates(eng_tables, cfg, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"])
     elif Table.config.function == "feedback":
-        feedback_loop()
+        feedback_loop(ac_tables, cfg, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
     elif Table.config.function == "feedback_engine":
-        feedback_loop_engine()
+        feedback_loop(eng_tables, cfg, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"])
     elif Table.config.function == "reformat":
-        reformat_sheet()
+        reformat_sheet(all_tables, cfg)
     elif Table.config.function == "lock":
-        lock_columns()
+        lock_columns(all_tables, cfg)
     elif Table.config.function == "refresh_summary":
-        refresh_summary()
+        refresh_summary(all_tables, cfg)
 
 
 if __name__ == "__main__":
