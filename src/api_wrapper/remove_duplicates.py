@@ -5,7 +5,7 @@ from polars import col, lit
 from typing import List
 
 
-def remove_dupes(tables: List, config: Config, columns: List):
+def remove_duplicates(tables: List, config: Config, columns: List):
     """Remove duplicates from smartsheet reports"""
     print("Removing smartsheet duplicates")
 
