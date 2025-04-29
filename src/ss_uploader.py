@@ -150,11 +150,6 @@ class Table:
         self.update_refresh()
         if not isinstance(sheet_json, Dict):
             return
-        with open(
-            os.path.join(Table.config.data_dir, f"{self.name}.json"), "w"
-        ) as file:
-            json.dump(sheet_json, file)
-
         self.sheet_id_to_col_map = {
             col["id"]: col["title"] for col in sheet_json["columns"]
         }
