@@ -1,11 +1,11 @@
-from src.Table import Table
-from src.Config import Config, threader
+from ss_reporting_tool.Table import Table
+from ss_reporting_tool.Config import CFG, threader
 import polars as pl
 from polars import col, lit
 from typing import List
 
 
-def feedback_loop(tables: List, config: Config, columns: List):
+def feedback_loop(tables: List, columns: List):
     print("Starting ...")
 
     def _feedback_loop(table: Table):
@@ -36,7 +36,7 @@ def feedback_loop(tables: List, config: Config, columns: List):
             ss_df,
             # on=["AC", "FLEET", "MAIN_PN", "PN", "VENDOR"],
             on=columns,
-            how="anti"
+            how="anti",
         )
 
         full_set_df = pl.concat([existing_records_df, new_records_df], how="diagonal")
@@ -75,8 +75,8 @@ def feedback_loop(tables: List, config: Config, columns: List):
             # .otherwise(False)
             # .alias("_UPDATE"),
             # pl.when(insert_row).then(True).otherwise(False).alias("_INSERT"),
-        ).select([col for col in ss_df.columns] )
-            # + ["_UPDATE"] + ["_INSERT"])
+        ).select([col for col in ss_df.columns])
+        # + ["_UPDATE"] + ["_INSERT"])
 
         table.data = df
         num_update = table.update_ss(rows=update_row & ~insert_row, cols=["Status"])
@@ -84,4 +84,4 @@ def feedback_loop(tables: List, config: Config, columns: List):
 
         print(f"{table.name}: {num_update} updated rows | {num_insert} inserted rows")
 
-    threader(_feedback_loop, tables, config.threadcount)
+    threader(_feedback_loop, tables, CFG.threadcount)

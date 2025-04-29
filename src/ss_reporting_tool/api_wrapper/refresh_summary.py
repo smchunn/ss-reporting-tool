@@ -1,12 +1,12 @@
-from src.Table import Table
-from src.Config import Config, threader
+from ss_reporting_tool.Table import Table
+from ss_reporting_tool.Config import CFG, threader
 import polars as pl
 from os.path import isfile
 from polars import col, lit
 from typing import List
 
 
-def refresh_summary(tables: List[Table], config: Config):
+def refresh_summary(tables: List[Table]):
     """
     make smartsheet table match newly generated excel table without changing _id's
     """
@@ -38,4 +38,4 @@ def refresh_summary(tables: List[Table], config: Config):
             table.data = filtered_df
             table.update_ss()
 
-    threader(_refresh_summary, tables, config.threadcount)
+    threader(_refresh_summary, tables, CFG.threadcount)

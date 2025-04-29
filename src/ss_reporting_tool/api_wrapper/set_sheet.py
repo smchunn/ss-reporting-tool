@@ -1,13 +1,12 @@
-from src.Table import Table
-from src.Config import Config, threader
+from ss_reporting_tool.Table import Table
+from ss_reporting_tool.Config import CFG, threader
 import os, logging
 import ss_api
 import concurrent.futures, threading
 from typing import List
 
 
-
-def set_sheet(tables: List, config: Config):
+def set_sheet(tables: List):
     def _set_sheet(table: Table):
         print(f"starting {table.name}...")
 
@@ -43,9 +42,9 @@ def set_sheet(tables: List, config: Config):
             ss_api.clear_sheet(target_sheet_id)
             ss_api.move_rows(target_sheet_id, import_sheet_id)
             ss_api.delete_sheet(import_sheet_id)
-        config.serialize()
+        CFG.serialize()
         print("done...")
+
     print("Starting ...")
 
-    threader(_set_sheet, tables, config.threadcount)
-
+    threader(_set_sheet, tables, CFG.threadcount)

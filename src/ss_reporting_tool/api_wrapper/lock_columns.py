@@ -1,12 +1,12 @@
-from src.Table import Table
-from src.Config import Config, threader
+from ss_reporting_tool.Table import Table
+from ss_reporting_tool.Config import CFG, threader
 import ss_api
 import polars as pl
 from polars import col, lit
 from typing import List
 
 
-def lock_columns(tables: List, config: Config):
+def lock_columns(tables: List):
 
     def _lock_columns(table):
         print(f"Locking columns for table: {table.name} (ID: {table.id})")
@@ -46,4 +46,4 @@ def lock_columns(tables: List, config: Config):
         print(f"Columns locked for table: {table.name}")
 
     print("Locking columns ...")
-    threader(_lock_columns, tables, config.threadcount)
+    threader(_lock_columns, tables, CFG.threadcount)

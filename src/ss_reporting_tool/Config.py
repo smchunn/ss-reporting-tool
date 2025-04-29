@@ -1,6 +1,5 @@
 import os, logging
 import toml
-import src.Table
 from datetime import datetime, timezone
 import concurrent.futures, threading
 
@@ -25,6 +24,7 @@ class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
 class Config:
     def __init__(self) -> None:
         import argparse
+        from ss_reporting_tool.Table import Table
 
         argparser = argparse.ArgumentParser(add_help=True)
         argparser.add_argument("func", type=str, help="function to run: ")
@@ -75,7 +75,7 @@ class Config:
                 table_refresh = v.get("date", datetime.now())
                 table_tags = set(v.get("tags", None))  # Get target_id from config
                 self.tables.append(
-                    src.Table.Table(
+                    Table(
                         table_id,
                         self.target_folder,
                         target_id,
@@ -136,3 +136,6 @@ def scheduler(count, interval, func, *args, **kwargs):
                 threading.Timer(interval, wrapper).start()
 
     wrapper()
+
+
+CFG = Config()

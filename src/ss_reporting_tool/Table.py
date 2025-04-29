@@ -1,17 +1,18 @@
-import src.Config
 import os, logging
 import toml, json
 import ss_api
 import polars as pl
 from datetime import datetime, timezone
 from typing import List, Dict, Callable, Union, Set
+
+
 class Table:
-    config: src.Config.Config = src.Config.Config()
+
     def __init__(
         self, id, parent_id, target_id, name, src, data_dir, last_update, tags
     ) -> None:
         self.name: str = name
-        self.id:str = id
+        self.id: str = id
         self.parent_id: str = parent_id
         self.target_id: str = target_id
         self.src: str = src
@@ -76,14 +77,18 @@ class Table:
         )
 
     def export_to_ss(self) -> None:
+        from ss_reporting_tool.Config import Config
         result = ss_api.import_xlsx_sheet(self.name, self.src, self.parent_id)
         if result:
             self.id = str(result["result"]["id"])
             self.update_refresh()
             print(f"  {self.name}({self.id}): new table loaded")
-        Table.config.serialize()
+
+        if isinstance(Config.global_cfg, Config):
+            Config.global_cfg.serialize()
 
     def update_ss(self, rows=None, cols=None) -> int:
+        from ss_reporting_tool.Config import Config
         if not rows:
             rows = pl.lit(True)
         if isinstance(self.sheet_col_to_id_map, dict) and isinstance(
@@ -105,11 +110,13 @@ class Table:
             if data:
                 print(f"exporting {self.name}({self.id})")
                 ss_api.update_sheet(self.id, data)
-                Table.config.serialize()
+                if isinstance(Config.global_cfg, Config):
+                    Config.global_cfg.serialize()
                 return len(data)
         return 0
 
     def insert_ss(self, rows=None) -> int:
+        from ss_reporting_tool.Config import Config
         if (
             isinstance(self.sheet_col_to_id_map, dict)
             and isinstance(self.sheet_id_to_col_map, dict)
@@ -130,11 +137,13 @@ class Table:
             if data:
                 print(f"exporting {self.name}({self.id})")
                 ss_api.add_rows(self.id, data)
-                Table.config.serialize()
+                if isinstance(Config.global_cfg, Config):
+                    Config.global_cfg.serialize()
                 return len(data)
         return 0
 
     def delete_ss(self, rows=None) -> int:
+        from ss_reporting_tool.Config import Config
         if (
             isinstance(self.sheet_col_to_id_map, dict)
             and isinstance(self.sheet_id_to_col_map, dict)
@@ -146,6 +155,7 @@ class Table:
                 print(f"deleting from {self.name}({self.id})")
                 ss_api.delete_rows(self.id, data)
                 self.data.remove(rows)
-                Table.config.serialize()
+                if isinstance(Config.global_cfg, Config):
+                    Config.global_cfg.serialize()
                 return len(data)
         return 0
