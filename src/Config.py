@@ -73,12 +73,14 @@ class Config:
                 )
                 table_name = k
                 table_refresh = v.get("date", datetime.now())
+                table_tags = set(v.get("tags", None))  # Get target_id from config
                 self.tables.append(
                     src.Table.Table(
                         table_id,
                         self.target_folder,
                         target_id,
                         table_name,
+                        table_tags,
                         table_src,
                         self.data_dir,
                         table_refresh,
@@ -109,6 +111,7 @@ class Config:
             encoder = TomlLineBreakPreservingEncoder()
             toml.dump(self._config, conf, encoder=encoder)
 
+
 def threader(func, tables, threadcount):
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         for table in tables:
@@ -122,6 +125,7 @@ def threader(func, tables, threadcount):
             for x, _ in enumerate(concurrent.futures.as_completed(futures)):
                 print(f"thread no. {x} returned")
 
+
 def scheduler(count, interval, func, *args, **kwargs):
     def wrapper():
         nonlocal count
@@ -132,4 +136,3 @@ def scheduler(count, interval, func, *args, **kwargs):
                 threading.Timer(interval, wrapper).start()
 
     wrapper()
-

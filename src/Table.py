@@ -2,25 +2,22 @@ import src.Config
 import os, logging
 import toml, json
 import ss_api
-import concurrent.futures, threading
 import polars as pl
-from datetime import datetime
-from os.path import isfile
-from polars import Config, col, lit
 from datetime import datetime, timezone
-from typing import List, Dict, Callable, Union
+from typing import List, Dict, Callable, Union, Set
 class Table:
     config: src.Config.Config = src.Config.Config()
     def __init__(
-        self, id, parent_id, target_id, name, src, data_dir, last_update
+        self, id, parent_id, target_id, name, src, data_dir, last_update, tags
     ) -> None:
-        self.name = name
-        self.id = id
-        self.parent_id = parent_id
-        self.target_id = target_id
-        self.src = src
-        self.data_dir = data_dir
+        self.name: str = name
+        self.id:str = id
+        self.parent_id: str = parent_id
+        self.target_id: str = target_id
+        self.src: str = src
+        self.data_dir: str = data_dir
         self.last_update = last_update
+        self.tags: Set = tags
         self.data: pl.DataFrame = pl.DataFrame()
         self.sheet_id_to_col_map = None
         self.sheet_col_to_id_map = None
