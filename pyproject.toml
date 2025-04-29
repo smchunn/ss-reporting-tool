@@ -19,7 +19,7 @@ dependencies = [
   "pyinstaller",
   "xlsxwriter",
   "fastexcel",
-  "git+ssh://git@github.com/smchunn/ss-api.git@master"
+  "ss-api@git+ssh://git@github.com/smchunn/ss-api.git@master"
 ]
 
 [tool.setuptools.packages.find]
