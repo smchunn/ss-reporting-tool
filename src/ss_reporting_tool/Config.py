@@ -2,6 +2,7 @@ import os, logging
 import toml
 from datetime import datetime, timezone
 import concurrent.futures, threading
+from typing import List, Dict, Callable, Union, Set
 
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
@@ -41,14 +42,14 @@ class Config:
         args = argparser.parse_args()
 
         self.function = args.func
-        self.threadcount = args.threadcount
+        self.threadcount: int = args.threadcount
 
-        self.path = os.path.abspath(os.path.expanduser(args.config))
+        self.path: str = os.path.abspath(os.path.expanduser(args.config))
 
         with open(args.config, "r") as conf:
             self._config = toml.load(conf)
 
-        self.tables = []
+        self.tables: List[Table] = []
 
         if isinstance(self._config, dict):
             for k, v in self._config["env"].items():
@@ -76,14 +77,14 @@ class Config:
                 table_tags = set(v.get("tags", None))  # Get target_id from config
                 self.tables.append(
                     Table(
+                        table_name,
                         table_id,
                         self.target_folder,
                         target_id,
-                        table_name,
-                        table_tags,
                         table_src,
                         self.data_dir,
                         table_refresh,
+                        table_tags,
                     )
                 )
         self.verbose = self.verbose or args.verbose

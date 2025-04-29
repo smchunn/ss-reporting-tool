@@ -15,8 +15,8 @@ logging.basicConfig(level=logging.INFO)
 
 def main():
     all_tables = CFG.tables
-    ac_tables = [table for table in all_tables if table.tags.contains("ac")]
-    eng_tables = [table for table in all_tables if table.tags.contains("engine")]
+    ac_tables = [table for table in all_tables if "ac" in table.tags]
+    eng_tables = [table for table in all_tables if "engine" in table.tags]
 
     if CFG.function == "get":
         get_sheet(all_tables)
