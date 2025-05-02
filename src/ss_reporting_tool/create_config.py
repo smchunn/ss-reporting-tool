@@ -1,13 +1,12 @@
 import os
 
 # Define the paths
-config_path = './data/summary_config.toml'
-
+config_path = "/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/config/report_config.toml"
 # Get the current directory where the script is located
 current_directory = os.path.dirname(os.path.abspath(__file__))
 
-# Define the path to the Excel folder in the current directory
-excel_folder_path = os.path.join(current_directory, './import')
+# Define the path to the Excel folder (absolute path)
+excel_folder_path = "/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/split"
 
 # Read the existing config.toml content
 with open(config_path, 'r') as file:
@@ -26,9 +25,9 @@ excel_files = [f for f in os.listdir(excel_folder_path) if f.endswith('.xlsx')]
 new_entries = []
 for excel_file in excel_files:
     table_name = os.path.splitext(excel_file)[0].upper()
-    # Create a relative path for the src entry and prepend './'
-    relative_src = os.path.relpath(os.path.join(excel_folder_path, excel_file), current_directory)
-    new_entry = f"\n[tables.{table_name}]\nid = \"\"\nsrc = \"../{relative_src}\"\n"
+    # Get the absolute path for the src entry
+    absolute_src = os.path.abspath(os.path.join(excel_folder_path, excel_file))
+    new_entry = f"\n[tables.{table_name}]\nid = \"\"\nsrc = \"{absolute_src}\"\n"
     new_entries.append(new_entry)
 
 # Sort the new entries alphabetically by table name
