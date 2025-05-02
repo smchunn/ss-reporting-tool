@@ -1,4 +1,5 @@
 {
-    "venvPath": "./",
-    "venv": ".venv"
+  "include" : "./src"
+  "venvPath": "./",
+  "venv": ".venv"
 }

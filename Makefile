@@ -1,10 +1,8 @@
 VENV = .venv
 REQUIREMENTS = requirements.txt
 PYTHON = /usr/bin/env python3
-SRC = ./src
-MODULE = ss_reporting_tool
-export PYTHONPATH = $(SRC)
-.PHONY: install test clean run get set feedback
+
+.PHONY: test clean run get set feedback
 
 $(VENV):
 	$(PYTHON) -m venv $(VENV)
@@ -21,6 +19,9 @@ set:
 
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
+
+test:
+	$(VENV)/bin/python -m pytest tests
 
 clean:
 	rm -rf $(VENV)
