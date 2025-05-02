@@ -1,10 +1,8 @@
 VENV = .venv
 REQUIREMENTS = requirements.txt
 PYTHON = /usr/bin/env python3
-SRC = ./src
-MODULE = ss_reporting_tool
-export PYTHONPATH = $(SRC)
-.PHONY: install test clean run get set feedback
+
+.PHONY: test clean run get set feedback
 
 $(VENV):
 	$(PYTHON) -m venv $(VENV)
@@ -27,6 +25,8 @@ summary:
 	$(VENV)/bin/python ./src/ss_reporting_tool/create_summary.py
 	$(VENV)/bin/python ./src/ss_reporting_tool/create_summary_category.py
 	$(VENV)/bin/python -m $(MODULE) refresh_summary -c /Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/config_DEMO/summary_config.toml
+test:
+	$(VENV)/bin/python -m pytest tests
 
 clean:
 	rm -rf $(VENV)
