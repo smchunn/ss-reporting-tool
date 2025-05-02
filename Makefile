@@ -22,6 +22,12 @@ set:
 feedback: install
 	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
 
+summary:
+	$(VENV)/bin/python -m $(MODULE) get -c /Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/config_DEMO/A320_A321_config.toml
+	$(VENV)/bin/python ./src/ss_reporting_tool/create_summary.py
+	$(VENV)/bin/python ./src/ss_reporting_tool/create_summary_category.py
+	$(VENV)/bin/python -m $(MODULE) refresh_summary -c /Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/config_DEMO/summary_config.toml
+
 clean:
 	rm -rf $(VENV)
 

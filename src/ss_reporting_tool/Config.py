@@ -74,7 +74,7 @@ class Config:
                 )
                 table_name = k
                 table_refresh = v.get("date", datetime.now())
-                table_tags = set(v.get("tags", None))  # Get target_id from config
+                table_tags = set(v.get("tags", []))  # Get target_id from config
                 self.tables.append(
                     Table(
                         table_name,
