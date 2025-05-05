@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 start_time = datetime.now()
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 def main():

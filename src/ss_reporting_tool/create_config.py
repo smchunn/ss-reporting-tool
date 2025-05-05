@@ -1,12 +1,12 @@
 import os
 
 # Define the paths
-config_path = "/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/config/report_config.toml"
+config_path = "/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/config/config.toml"
 # Get the current directory where the script is located
 current_directory = os.path.dirname(os.path.abspath(__file__))
 
 # Define the path to the Excel folder (absolute path)
-excel_folder_path = "/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/split"
+excel_folder_path = "/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/data"
 
 # Read the existing config.toml content
 with open(config_path, 'r') as file:

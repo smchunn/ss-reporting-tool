@@ -82,7 +82,7 @@ def summarize_excel_folder(input_folder, output_folder):
         totals_df.to_excel(writer, sheet_name='Totals_Summary', index=False)
 
 # Example usage:
-input_folder = r'/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/split'   # Replace with your input folder path
+input_folder = r'/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/data'   # Replace with your input folder path
 output_folder = r'/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_interchangeability/summary' # Replace with your output folder path
 
 summarize_excel_folder(input_folder, output_folder)
