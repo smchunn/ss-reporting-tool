@@ -16,7 +16,7 @@ def refresh_summary(tables: List[Table]):
         print(f"Getting {table.name} from Smartsheet")
         table.load_from_ss()
         ss_df = table.data  # current Smartsheet records
-
+        print(ss_df.head())
         # Load new records from Excel
         new_df = pl.read_excel(
             table.src,
@@ -24,7 +24,7 @@ def refresh_summary(tables: List[Table]):
                 [col for col in ss_df.columns if not col.startswith("_")]
             ).collect_schema(),
         )
-
+        print(new_df.head())
         if ss_df.shape[0] == 1 and ss_df.shape[0] == new_df.shape[0]:
             joined_df = new_df.join(ss_df, on=pl.lit(True), how="full")
             cols_to_drop = [col for col in joined_df.columns if col.endswith("_right")]
