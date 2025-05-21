@@ -12,13 +12,13 @@ install: requirements.txt | $(VENV)
 	$(VENV)/bin/pip install -r $(REQUIREMENTS)
 
 get:
-	$(VENV)/bin/python -m $(MODULE) get -c ./data/config.toml
+	$(VENV)/bin/python -m ss_reporting_tool get -c ./data/config.toml
 
-set:
-	$(VENV)/bin/python -m $(MODULE) set -c ./data/config.toml
+refresh:
+	$(VENV)/bin/python -m ss_reporting_tool refresh_summary -c ./data/config.toml --debug
 
 feedback: install
-	$(VENV)/bin/python ./ss_uploader.py feedback -c ./data/A320_config.toml
+	$(VENV)/bin/python -m ss_reporting_tool feedback -c ./data/A320_config.toml
 
 summary:
 	$(VENV)/bin/python -m $(MODULE) get -c /Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/config_DEMO/A320_A321_config.toml

@@ -6,8 +6,7 @@ from datetime import datetime, timezone
 import concurrent.futures, threading
 from typing import List, Dict, Callable, Union, Set, Optional, IO
 from dataclasses import dataclass, field
-from ss_reporting_tool import CFG, CFG_PATH
-
+from ss_reporting_tool.Table import Table
 
 
 class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
@@ -38,7 +37,6 @@ class CliArgs:
 
 @dataclass
 class Config:
-    from ss_reporting_tool.Table import Table
 
     function: str
     threadcount: int = 8
@@ -48,7 +46,6 @@ class Config:
     data_dir: Optional[str] = None
     tables: List[Table] = field(default_factory=list)  # forward reference
     config_path: Optional[str] = None
-
 
     @staticmethod
     def from_dict(args: CliArgs, config_dict: Dict) -> "Config":
@@ -66,7 +63,8 @@ class Config:
         )
         new_cfg.setup_environment()
         new_cfg.setup_data_directory()
-        new_cfg.initialize_tables(config_dict)
+        new_cfg.initialize_reports(config_dict)
+        new_cfg.initialize_summaries(config_dict)
         new_cfg.setup_logging()
         return new_cfg
 
@@ -82,30 +80,63 @@ class Config:
         elif os.path.isfile(self.data_dir):
             raise RuntimeError(f"Error: data dir '{self.data_dir}' exists as a file.")
 
-    def initialize_tables(self, config_dict: Dict):
-        from ss_reporting_tool.Table import Table
+    def initialize_reports(self, config_dict: Dict):
+        from ss_reporting_tool.Report import Report
+
+        if not self.data_dir:
+            logging.debug(f"failed attempt to load data dir {self.data_dir}")
+            return
 
         target_folder = self.env.get("target_folder")
-        data_dir = self.data_dir or ""
-        for k, v in config_dict.get("tables", {}).items():
+        for k, v in config_dict.get("reports", {}).items():
             table_id = v.get("id")
             target_id = v.get("target_id")
-            table_src = os.path.join(data_dir, v["src"]) if "src" in v else ""
+            table_src = os.path.join(self.data_dir, v["src"]) if "src" in v else ""
             table_name = k
             table_refresh = v.get("date", datetime.now())
             table_tags = set(v.get("tags", []))
+            table_metadata = v.get("metadata", {})
             self.tables.append(
-                Table(
+                Report(
+                    self,
+                    table_name,
+                    table_id,
+                    target_id,
+                    table_refresh,
+                    table_tags,
+                    table_metadata,
+                    target_folder,
+                    table_src,
+                )
+            )
+        for table in self.tables:
+            if isinstance(table, Report):
+                print(table)
+
+    def initialize_summaries(self, config_dict: Dict):
+        from ss_reporting_tool.Summary import Summary
+
+        target_folder = self.env.get("target_folder")
+        for k, v in config_dict.get("summaries", {}).items():
+            table_id = v.get("id")
+            table_name = k
+            table_refresh = v.get("date", datetime.now())
+            table_tags = set(v.get("tags", []))
+            table_metadata = v.get("metadata", {})
+            self.tables.append(
+                Summary(
+                    self,
                     table_name,
                     table_id,
                     target_folder,
-                    target_id,
-                    table_src,
-                    data_dir,
                     table_refresh,
                     table_tags,
+                    table_metadata,
                 )
             )
+        for table in self.tables:
+            if isinstance(table, Summary):
+                print(table)
 
     def setup_logging(self):
         if not self.data_dir:
@@ -126,6 +157,7 @@ class Config:
                 else (logging.INFO if self.verbose else logging.WARNING)
             ),
         )
+
     def to_dict(self) -> Dict:
         # Compose top-level keys
         config_dict = {
@@ -140,32 +172,26 @@ class Config:
         if self.env:
             config_dict["env"] = self.env
 
-        # Add tables as nested dicts
         tables_dict = {}
         for table in self.tables:
-            tables_dict[table.name] = {
-                "src": os.path.relpath(table.src, self.data_dir) if table.src else "",
-                "id": table.id,
-                "target_id": table.target_id,
-                "date": table.last_update.strftime("%Y-%m-%d") if isinstance(table.last_update, datetime) else str(table.last_update),
-                "tags": list(table.tags) if table.tags else [],
-            }
-            # Remove empty values if desired
-            tables_dict[table.name] = {k: v for k, v in tables_dict[table.name].items() if v}
+            tables_dict[table.name] = table.to_dict()  # Remove empty values if desired
+            # tables_dict[table.name] = {
+            #     k: v for k, v in tables_dict[table.name].items() if v
+            # }
 
         if tables_dict:
             config_dict["tables"] = tables_dict
 
         return config_dict
-    def serialize(self, fp: Optional[IO]=None):
+
+    def serialize(self, fp: Optional[IO] = None):
         config_dict = self.to_dict()
         encoder = TomlLineBreakPreservingEncoder()
         if fp:
             toml.dump(config_dict, fp, encoder=encoder)
-        elif CFG_PATH:
-            with open(CFG_PATH, "r") as f:
+        elif self.config_path:
+            with open(self.config_path, "r") as f:
                 toml.dump(config_dict, f, encoder=encoder)
-
 
 
 # --- Helper functions for TOML I/O ---
@@ -186,30 +212,29 @@ def dump_toml_dict_to_string(config_dict: Dict, encoder=None) -> str:
 def dump_toml_dict_to_fp(config_dict: Dict, fp: IO, encoder=None):
     """Serialize dict to TOML, writing to file-like object."""
     toml.dump(config_dict, fp, encoder=encoder)
+    # ss_reporting_tool/src/ss_reporting_tool/__init__.py
 
 
-def threader(func, tables, threadcount):
-    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-        for table in tables:
-            func(table)
-    elif len(tables) == 1:
-        func(tables[0])
-    else:
-        with concurrent.futures.ThreadPoolExecutor(threadcount) as executor:
-            futures = [executor.submit(func, table) for table in tables]
+def cli_args() -> CliArgs:
+    import argparse
 
-            for x, _ in enumerate(concurrent.futures.as_completed(futures)):
-                print(f"thread no. {x} returned")
+    argparser = argparse.ArgumentParser(add_help=True)
+    argparser.add_argument("func", type=str, help="function to run: ")
+    argparser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        help="path/to/config.toml",
+        default="./config.toml",
+    )
+    argparser.add_argument("--verbose", action="store_true")
+    argparser.add_argument("--threadcount", help="set # of threads", default=8)
+    argparser.add_argument("--debug", action="store_true")
+    args = argparser.parse_args()
+    return CliArgs(args.func, args.config, args.threadcount, args.verbose, args.debug)
 
 
-def scheduler(count, interval, func, *args, **kwargs):
-    def wrapper():
-        nonlocal count
-        if count > 0:
-            func(args, kwargs)
-            count -= 1
-            if count > 0:
-                threading.Timer(interval, wrapper).start()
-
-    wrapper()
-
+def setup():
+    args = cli_args()
+    config_dict = load_config_dict_from_path(args.config_path)
+    return Config.from_dict(args, config_dict)

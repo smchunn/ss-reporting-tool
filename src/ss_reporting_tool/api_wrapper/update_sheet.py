@@ -1,12 +1,13 @@
-from ss_reporting_tool.Table import Table
-from ss_reporting_tool.Config import CFG, threader
+from ss_reporting_tool.Config import Config
+from ss_reporting_tool.Report import Report
+from ss_reporting_tool.Utils import threader
 import ss_api
 import polars as pl
 from polars import col, lit
 from typing import List
 
 
-def update_sheet(tables: List):
+def update_sheet(cfg: Config, tables: List):
     """
     Updates the columns in the specified sheets to set "Status" as a dropdown
     and "Created Date" and "Modified Date" as date columns.
@@ -60,4 +61,4 @@ def update_sheet(tables: List):
         print(f"Columns updated for table: {table.name}")
 
     print("Updating columns ...")
-    threader(_update_sheet, tables, CFG.threadcount)
+    threader(_update_sheet, tables, cfg.threadcount)

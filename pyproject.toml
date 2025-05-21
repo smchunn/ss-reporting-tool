@@ -4,10 +4,11 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ss-reporting"
+name = "ss-reporting-tool"
 version = "0.0.1"
 description = "smartsheet reporting tool"
 authors = [{ name = "smchunn", email = "smchunn@icloud.com" }]
+requires-python = ">= 3.12"
 dependencies = [
   "openpyxl",
   "smartsheet-python-sdk",

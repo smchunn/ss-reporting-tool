@@ -1,15 +1,21 @@
-from ss_reporting_tool.Table import Table
-from ss_reporting_tool.Config import CFG, threader
+from ss_reporting_tool.Config import Config
+from ss_reporting_tool.Report import Report
+from ss_reporting_tool.Utils import threader
+import logging
 import polars as pl
 from polars import col, lit
 from typing import List
 
 
-def feedback_loop(tables: List, columns: List):
+def feedback_loop(cfg: Config, tables: List, columns: List):
     print("Starting ...")
 
-    def _feedback_loop(table: Table):
+    def _feedback_loop(table: Report):
         print(f"Getting {table.name} from smartsheet")
+
+        if not table.src:
+            logging.debug(f"failed attempt, src not set ")
+            return
 
         table.load_from_ss()
         ss_df = table.data  # current smartsheet records
@@ -79,9 +85,11 @@ def feedback_loop(tables: List, columns: List):
         # + ["_UPDATE"] + ["_INSERT"])
 
         table.data = df
-        num_update = table.update_ss(rows=update_row & ~insert_row, cols=["Status"])
+        num_update = table.update_ss(
+            rows=update_row & ~insert_row, cols=["Status"]
+        )
         num_insert = table.insert_ss(rows=insert_row)
 
         print(f"{table.name}: {num_update} updated rows | {num_insert} inserted rows")
 
-    threader(_feedback_loop, tables, CFG.threadcount)
+    threader(_feedback_loop, tables, cfg.threadcount)

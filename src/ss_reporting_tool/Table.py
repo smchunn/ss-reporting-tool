@@ -1,28 +1,31 @@
+# ss_reporting_tool/src/ss_reporting_tool/Table.py
 import os, logging
 import toml, json
 import ss_api
 import polars as pl
 from datetime import datetime, timezone
-from typing import List, Dict, Callable, Union, Set
+from typing import List, Dict, Callable, Union, Set, Optional, TYPE_CHECKING
 
 
 class Table:
 
-    def __init__(
-        self, name, id, parent_id, target_id, src, data_dir, last_update, tags
-    ) -> None:
+    def __init__(self, cfg, name, id, folder_id, last_update, tags, metadata) -> None:
+        from ss_reporting_tool.Config import Config
+
+        self.cfg: Config = cfg
         self.name: str = name
         self.id: str = id
-        self.parent_id: str = parent_id
-        self.target_id: str = target_id
-        self.src: str = src
-        self.data_dir: str = data_dir
+        self.folder_id: str = folder_id
         self.last_update = last_update
         self.tags: Set = tags
+        self.metadata: Dict = metadata
 
         self.data: pl.DataFrame = pl.DataFrame()
         self.sheet_id_to_col_map = None
         self.sheet_col_to_id_map = None
+
+    def __repr__(self) -> str:
+        return f"{self.name}::{self.id or "***"}"
 
     def __bool__(self) -> bool:
         return not self.data.is_empty()
@@ -38,8 +41,13 @@ class Table:
         self.update_refresh()
         if not isinstance(sheet_json, Dict):
             return
-        if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-            with open(os.path.join(self.data_dir, f"{self.name}.json"), "w") as file:
+        if (
+            logging.getLogger().getEffectiveLevel() == logging.DEBUG
+            and self.cfg.data_dir
+        ):
+            with open(
+                os.path.join(self.cfg.data_dir, f"{self.name}.json"), "w"
+            ) as file:
                 json.dump(sheet_json, file)
 
         self.sheet_id_to_col_map = {
@@ -63,11 +71,10 @@ class Table:
         self.data = pl.DataFrame(data, infer_schema_length=None)
         # .filter(col("AC").is_not_null())
 
-    def load_from_file(self) -> None:
-        self.data = pl.read_csv(self.src, separator=chr(31))
-
     def export_to_excel(self) -> None:
-        excel_fp = os.path.join(self.data_dir, f"{self.name}.xlsx")
+        if not self.cfg.data_dir:
+            return
+        excel_fp = os.path.join(self.cfg.data_dir, f"{self.name}.xlsx")
         self.data.write_excel(
             workbook=excel_fp,
             worksheet="audit",
@@ -77,19 +84,7 @@ class Table:
             freeze_panes=(1, 0),
         )
 
-    def export_to_ss(self) -> None:
-        from ss_reporting_tool.Config import CFG
-
-        result = ss_api.import_xlsx_sheet(self.name, self.src, self.parent_id)
-        if result:
-            self.id = str(result["result"]["id"])
-            self.update_refresh()
-            print(f"  {self.name}({self.id}): new table loaded")
-
-            CFG.serialize()
-
     def update_ss(self, rows=None, cols=None) -> int:
-        from ss_reporting_tool.Config import CFG
 
         if not rows:
             rows = pl.lit(True)
@@ -112,12 +107,11 @@ class Table:
             if data:
                 print(f"exporting {self.name}({self.id})")
                 ss_api.update_sheet(self.id, data)
-                CFG.serialize()
+                self.cfg.serialize()
                 return len(data)
         return 0
 
     def insert_ss(self, rows=None) -> int:
-        from ss_reporting_tool.Config import CFG
 
         if (
             isinstance(self.sheet_col_to_id_map, dict)
@@ -139,12 +133,11 @@ class Table:
             if data:
                 print(f"exporting {self.name}({self.id})")
                 ss_api.add_rows(self.id, data)
-                CFG.serialize()
+                self.cfg.serialize()
                 return len(data)
         return 0
 
     def delete_ss(self, rows=None) -> int:
-        from ss_reporting_tool.Config import CFG
 
         if (
             isinstance(self.sheet_col_to_id_map, dict)
@@ -156,7 +149,31 @@ class Table:
             if data:
                 print(f"deleting from {self.name}({self.id})")
                 ss_api.delete_rows(self.id, data)
-                self.data.remove(rows)
-                CFG.serialize()
+                self.data = self.data.filter(rows)
+                self.cfg.serialize()
                 return len(data)
         return 0
+
+    def to_dict(self) -> Dict:
+        table_dict = {
+            "id": self.id,
+            "date": (
+                self.last_update.strftime("%Y-%m-%d")
+                if isinstance(self.last_update, datetime)
+                else str(self.last_update)
+            ),
+            "tags": list(self.tags) if self.tags else [],
+            "metadata": self.metadata if self.metadata else {},
+        }
+        return table_dict
+
+    def get(self, key: str):
+        metadata = self.metadata
+        while "." in key and isinstance(metadata, dict):
+            i = key.index(".")
+            metadata = metadata.get(key[0:i])
+            key = key[i + 1 :]
+        if not isinstance(metadata, dict):
+            return None
+
+        return metadata.get(key)

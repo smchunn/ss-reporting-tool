@@ -1,15 +1,16 @@
-from ss_reporting_tool.Table import Table
-from ss_reporting_tool.Config import CFG, threader
+from ss_reporting_tool.Config import Config
+from ss_reporting_tool.Report import Report
+from ss_reporting_tool.Utils import threader
 import polars as pl
 from polars import col, lit
 from typing import List
 
 
-def remove_duplicates(tables: List, columns: List):
+def remove_duplicates(cfg: Config, tables: List, columns: List):
     """Remove duplicates from smartsheet reports"""
     print("Removing smartsheet duplicates")
 
-    def _remove_dupes(table: Table):
+    def _remove_dupes(table: Report):
         print(f"Getting {table.name} from smartsheet")
         table.load_from_ss()
         print(table.data.shape)
@@ -26,4 +27,4 @@ def remove_duplicates(tables: List, columns: List):
         num_delete = table.delete_ss(rows=rows_to_delete)
         print(f"{table.name} Deleted rows: {num_delete}")
 
-    threader(_remove_dupes, tables, CFG.threadcount)
+    threader(_remove_dupes, tables, cfg.threadcount)
