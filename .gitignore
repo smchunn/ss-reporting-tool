@@ -4,4 +4,8 @@
 data
 sheet.log
 config.toml
-__pycache__
+build/
+dist/
+__pycache__/
+*.pyc
+*.egg*

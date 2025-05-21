@@ -1,8 +1,8 @@
 import os
 import polars as pl
 
-FOLDER_PATH = '/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/ACA/data'
-OUTPUT_FOLDER = '/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/ACA/processed'
+FOLDER_PATH = '/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_effectivity_IFS/data'
+OUTPUT_FOLDER = '/Users/silas.bash/Library/CloudStorage/OneDrive-MMC/SmartSheet_API/DEMO_effectivity_IFS/processed'
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 all_data = []
@@ -73,8 +73,8 @@ agg_df = (
 
 # 8. Prepare final column order
 desired_order = [
-    "STATUS", "Add Effectivity", "Validate Effectivity", "PN", "MAIN_PN", "ASSIGNMENT", "NOTES", "CATEGORY",
-    "DESCRIPTION", "CHAPTER", "SECTION", "TRAX_HEADER_EFFECTIVE", "EFFECTIVITY_PN_INTERCHANGEABLE", "FLEET",
+    "STATUS", "ASSIGNMENT", "NOTES","PN","DESCRIPTION","MAIN_PN","CHAPTER","SECTION","CATEGORY","Add Effectivity", "Validate Effectivity",     
+       "TRAX_HEADER_EFFECTIVE", "EFFECTIVITY_PN_INTERCHANGEABLE", "FLEET",
     "VENDOR", "CREATED_DATE", "MODIFIED_DATE"
 ]
 
