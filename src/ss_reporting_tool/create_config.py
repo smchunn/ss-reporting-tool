@@ -13,7 +13,7 @@ with open(config_path, 'r') as file:
     config_content = file.readlines()
 
 # Find the index where the table entries start
-start_index = next((i for i, line in enumerate(config_content) if line.startswith("[tables.")), len(config_content))
+start_index = next((i for i, line in enumerate(config_content) if line.startswith("[reports.")), len(config_content))
 
 # Keep only the header part of the config
 header_content = config_content[:start_index]
@@ -27,7 +27,7 @@ for excel_file in excel_files:
     table_name = os.path.splitext(excel_file)[0].upper()
     # Get the absolute path for the src entry
     absolute_src = os.path.abspath(os.path.join(excel_folder_path, excel_file))
-    new_entry = f"\n[tables.{table_name}]\nid = \"\"\nsrc = \"{absolute_src}\"\n"
+    new_entry = f"\n[reports.{table_name}]\nid = \"\"\nsrc = \"{absolute_src}\"\n"
     new_entries.append(new_entry)
 
 # Sort the new entries alphabetically by table name
