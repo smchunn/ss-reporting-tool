@@ -1,6 +1,7 @@
 VENV = .venv
 REQUIREMENTS = requirements.txt
 PYTHON = /usr/bin/env python3
+PATH_TO_MODULE = ssh+https://github.com/..../Users/spencer.chunn/Development/python/ss-reporting-tool/
 
 .PHONY: test clean run get set feedback
 
@@ -10,6 +11,9 @@ $(VENV):
 
 install: requirements.txt | $(VENV)
 	$(VENV)/bin/pip install -r $(REQUIREMENTS)
+
+install: $(VENV)
+	$(VENV)/bin/pip install $(PATH_TO_MODULE)
 
 get:
 	$(VENV)/bin/python -m ss_reporting_tool get -c ./data/config.toml
