@@ -6,24 +6,25 @@ from datetime import datetime, timezone
 import concurrent.futures, threading
 from typing import List, Dict, Callable, Union, Set, Optional, IO
 from dataclasses import dataclass, field
+from ss_reporting_tool.Report import Report
 from ss_reporting_tool.Table import Table
 
+import sys, re
+if sys.version_info >= (3,):
+    unicode = str
+class InlineDict(dict):
+    pass
 
-class TomlLineBreakPreservingEncoder(toml.TomlEncoder):
-    def __init__(self, _dict=dict, preserve=False):
-        super(TomlLineBreakPreservingEncoder, self).__init__(_dict, preserve)
+class SSRTEncoder(toml.TomlEncoder):
+    def __init__(self, _dict=dict):
+        super().__init__(_dict, preserve=True)
 
-    def dump_list(self, v):
-        retval = "[\n"
-        for u in v:
-            if isinstance(u, str) and "\n" in u:
-                retval += (
-                    '  """' + u.replace('"""', '\\"""').replace("\\", "\\\\") + '""",\n'
-                )
-            else:
-                retval += " " + str(self.dump_value(u)) + ","
-        retval += " ]"
-        return retval
+    def dump_value(self, v):
+        if isinstance(v, InlineDict):
+            items = [f'{k} = {self.dump_value(val)}' for k, val in v.items()]
+            return '{ ' + ', '.join(items) + ' }'
+        return super().dump_value(v)
+
 
 
 @dataclass
@@ -95,7 +96,7 @@ class Config:
             table_name = k
             table_refresh = v.get("date", datetime.now())
             table_tags = set(v.get("tags", []))
-            table_metadata = v.get("metadata", {})
+            table_metadata = InlineDict(v.get("metadata", {}))
             self.tables.append(
                 Report(
                     self,
@@ -139,6 +140,7 @@ class Config:
                 print(table)
 
     def setup_logging(self):
+        print(f"{self.verbose=}, {self.debug=}")
         if not self.data_dir:
             logging.basicConfig(
                 level=(
@@ -172,25 +174,24 @@ class Config:
         if self.env:
             config_dict["env"] = self.env
 
-        tables_dict = {}
+        reports_dict = {}
         for table in self.tables:
-            tables_dict[table.name] = table.to_dict()  # Remove empty values if desired
-            # tables_dict[table.name] = {
-            #     k: v for k, v in tables_dict[table.name].items() if v
-            # }
+            if isinstance(table, Report):
+                reports_dict[table.name] = table.to_dict()
+                print(type(table.metadata))
 
-        if tables_dict:
-            config_dict["tables"] = tables_dict
+        if reports_dict:
+            config_dict["reports"] = reports_dict
 
         return config_dict
 
     def serialize(self, fp: Optional[IO] = None):
         config_dict = self.to_dict()
-        encoder = TomlLineBreakPreservingEncoder()
+        encoder = SSRTEncoder()
         if fp:
             toml.dump(config_dict, fp, encoder=encoder)
         elif self.config_path:
-            with open(self.config_path, "r") as f:
+            with open(self.config_path, "w") as f:
                 toml.dump(config_dict, f, encoder=encoder)
 
 

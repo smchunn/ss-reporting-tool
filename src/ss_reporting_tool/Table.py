@@ -11,6 +11,7 @@ class Table:
 
     def __init__(self, cfg, name, id, folder_id, last_update, tags, metadata) -> None:
         from ss_reporting_tool.Config import Config
+        from ss_reporting_tool.Config import InlineDict
 
         self.cfg: Config = cfg
         self.name: str = name
@@ -18,7 +19,7 @@ class Table:
         self.folder_id: str = folder_id
         self.last_update = last_update
         self.tags: Set = tags
-        self.metadata: Dict = metadata
+        self.metadata: InlineDict = metadata
 
         self.data: pl.DataFrame = pl.DataFrame()
         self.sheet_id_to_col_map = None

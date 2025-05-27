@@ -25,6 +25,7 @@ def set_sheet(cfg: Config, tables: List):
             if result:
                 table.id = str(result["result"]["id"])
                 print(f"  {table.name}({table.id}): new table loaded")
+                cfg.serialize()
                 return ("new_id", table.name, table.id)
 
         else:
