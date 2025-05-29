@@ -71,7 +71,7 @@ class Config:
         new_cfg.setup_environment()
         new_cfg.setup_data_directory()
         new_cfg.initialize_reports(config_dict)
-        new_cfg.initialize_summaries(config_dict)
+        # new_cfg.initialize_summaries(config_dict)
         new_cfg.setup_logging()
         return new_cfg
 
@@ -100,6 +100,7 @@ class Config:
             table_src = os.path.join(self.data_dir, v["src"]) if "src" in v else ""
             table_name = k
             table_refresh = v.get("date", datetime.now())
+            table_primary_column = v.get("primary_column", 0)
             table_tags = set(v.get("tags", []))
             table_metadata = InlineDict(v.get("metadata", {}))
             self.tables.append(
@@ -109,6 +110,7 @@ class Config:
                     table_id,
                     target_folder,
                     table_refresh,
+                    table_primary_column,
                     table_tags,
                     table_metadata,
                     table_src,
@@ -118,30 +120,30 @@ class Config:
             if isinstance(table, Report):
                 print(table)
 
-    def initialize_summaries(self, config_dict: Dict):
-        from ss_reporting_tool.Summary import Summary
-
-        for k, v in config_dict.get("summaries", {}).items():
-            table_id = v.get("id")
-            target_folder = v.get("target_folder") or self.target_folder
-            table_name = k
-            table_refresh = v.get("date", datetime.now())
-            table_tags = set(v.get("tags", []))
-            table_metadata = v.get("metadata", {})
-            self.tables.append(
-                Summary(
-                    self,
-                    table_name,
-                    table_id,
-                    target_folder,
-                    table_refresh,
-                    table_tags,
-                    table_metadata,
-                )
-            )
-        for table in self.tables:
-            if isinstance(table, Summary):
-                print(table)
+    # def initialize_summaries(self, config_dict: Dict):
+    #     from ss_reporting_tool.Summary import Summary
+    #
+    #     for k, v in config_dict.get("summaries", {}).items():
+    #         table_id = v.get("id")
+    #         target_folder = v.get("target_folder") or self.target_folder
+    #         table_name = k
+    #         table_refresh = v.get("date", datetime.now())
+    #         table_tags = set(v.get("tags", []))
+    #         table_metadata = v.get("metadata", {})
+    #         self.tables.append(
+    #             Summary(
+    #                 self,
+    #                 table_name,
+    #                 table_id,
+    #                 target_folder,
+    #                 table_refresh,
+    #                 table_tags,
+    #                 table_metadata,
+    #             )
+    #         )
+    #     for table in self.tables:
+    #         if isinstance(table, Summary):
+    #             print(table)
 
     def setup_logging(self):
         print(f"{self.verbose=}, {self.debug=}")

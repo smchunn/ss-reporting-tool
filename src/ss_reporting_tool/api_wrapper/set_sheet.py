@@ -19,7 +19,8 @@ def set_sheet(cfg: Config, tables: List):
             result = ss_api.import_xlsx_sheet(
                 sheet_name=table.name,
                 filepath=os.path.join(table.src),
-                folder_id=table.folder_id if table.folder_id else None,
+                folder_id=table.folder_id or None,
+                primary_column_index=table.primary_column,
             )
 
             if result:
@@ -32,7 +33,8 @@ def set_sheet(cfg: Config, tables: List):
             result = ss_api.import_xlsx_sheet(
                 sheet_name=f"TMP_{table.name}",
                 filepath=table.src,
-                folder_id=table.folder_id if table.folder_id else None,
+                folder_id=table.folder_id or None,
+                primary_column_index=table.primary_column,
             )
 
             if not result:

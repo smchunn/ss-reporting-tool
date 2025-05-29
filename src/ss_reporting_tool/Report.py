@@ -9,10 +9,21 @@ import datetime, os
 class Report(Table):
 
     def __init__(
-        self, cfg, name, id, target_folder, last_update, tags, metadata, src
+        self,
+        cfg,
+        name,
+        id,
+        target_folder,
+        last_update,
+        primary_column,
+        tags,
+        metadata,
+        src,
     ) -> None:
         self.src: Optional[str] = src
-        super().__init__(cfg, name, id, target_folder, last_update, tags, metadata)
+        super().__init__(
+            cfg, name, id, target_folder, last_update, primary_column, tags, metadata
+        )
 
     def load_from_file(self) -> None:
         if not self.src:

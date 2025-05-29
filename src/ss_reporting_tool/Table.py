@@ -9,7 +9,17 @@ from typing import List, Dict, Callable, Union, Set, Optional, TYPE_CHECKING
 
 class Table:
 
-    def __init__(self, cfg, name, id, folder_id, last_update, tags, metadata) -> None:
+    def __init__(
+        self,
+        cfg,
+        name,
+        id,
+        folder_id,
+        last_update,
+        primary_column,
+        tags,
+        metadata,
+    ) -> None:
         from ss_reporting_tool.Config import Config
         from ss_reporting_tool.Config import InlineDict
 
@@ -18,6 +28,7 @@ class Table:
         self.id: str = id
         self.folder_id: str = folder_id
         self.last_update = last_update
+        self.primary_column = primary_column
         self.tags: Set = tags
         # self.metadata: InlineDict = metadata
 
