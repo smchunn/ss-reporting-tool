@@ -17,22 +17,17 @@ def main():
     CFG = setup()
     if not isinstance(CFG, Config):
         return
-    ac_reports = [
+    reports = [
         table
         for table in CFG.tables
-        if isinstance(table, Report) and "ac" in table.tags
+        if isinstance(table, Report)
     ]
     eng_reports = [
         table
         for table in CFG.tables
         if isinstance(table, Report) and "engine" in table.tags
     ]
-    effect_summaries = [
-        table
-        for table in CFG.tables
-        if isinstance(table, Summary)
-        if "effect" in table.tags
-    ]
+    summaries = [table for table in CFG.tables if isinstance(table, Summary)]
     interchg_summary_tables = [
         table
         for table in CFG.tables
@@ -40,25 +35,27 @@ def main():
         if "interchg" in table.tags
     ]
     if CFG.function == "get":
-        get_sheet(CFG, ac_reports)
+        get_sheet(CFG, reports)
     elif CFG.function == "set":
-        set_sheet(CFG, ac_reports)
+        set_sheet(CFG, reports)
     elif CFG.function == "update":
-        update_sheet(CFG, ac_reports)
+        update_sheet(CFG, reports)
     elif CFG.function == "dedupe":
-        remove_duplicates(CFG, ac_reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
+        remove_duplicates(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
     elif CFG.function == "dedupe_engine":
         remove_duplicates(
             CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]
         )
     elif CFG.function == "feedback":
-        feedback_loop(CFG, ac_reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
+        feedback_loop(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
     elif CFG.function == "feedback_engine":
         feedback_loop(CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"])
     elif CFG.function == "reformat":
-        reformat_sheet(CFG, ac_reports)
+        reformat_sheet(CFG, reports)
     elif CFG.function == "lock":
-        lock_columns(CFG, ac_reports)
+        lock_columns(CFG, reports)
+    elif CFG.function == "sum":
+        refresh_summary(CFG, summaries)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ def scheduler(count, interval, func, *args, **kwargs):
                 threading.Timer(interval, wrapper).start()
 
     wrapper()
+
+
 def log(msg):
     pass
-

@@ -10,10 +10,14 @@ from ss_reporting_tool.Report import Report
 from ss_reporting_tool.Table import Table
 
 import sys, re
+
 if sys.version_info >= (3,):
     unicode = str
+
+
 class InlineDict(dict):
     pass
+
 
 class SSRTEncoder(toml.TomlEncoder):
     def __init__(self, _dict=dict):
@@ -21,10 +25,9 @@ class SSRTEncoder(toml.TomlEncoder):
 
     def dump_value(self, v):
         if isinstance(v, InlineDict):
-            items = [f'{k} = {self.dump_value(val)}' for k, val in v.items()]
-            return '{ ' + ', '.join(items) + ' }'
+            items = [f"{k} = {self.dump_value(val)}" for k, val in v.items()]
+            return "{ " + ", ".join(items) + " }"
         return super().dump_value(v)
-
 
 
 @dataclass
@@ -45,6 +48,7 @@ class Config:
     debug: bool = False
     env: Dict[str, str] = field(default_factory=dict)
     data_dir: Optional[str] = None
+    target_folder: Optional[str] = None
     tables: List[Table] = field(default_factory=list)  # forward reference
     config_path: Optional[str] = None
 
@@ -52,6 +56,7 @@ class Config:
     def from_dict(args: CliArgs, config_dict: Dict) -> "Config":
         env = config_dict.get("env", {})
         data_dir = config_dict.get("data_dir")
+        target_folder = config_dict.get("target_folder")
         new_cfg = Config(
             function=args.function,
             threadcount=args.threadcount,
@@ -59,6 +64,7 @@ class Config:
             debug=args.debug,
             env=env,
             data_dir=data_dir,
+            target_folder=target_folder,
             tables=[],
             config_path=args.config_path,
         )
@@ -88,10 +94,9 @@ class Config:
             logging.debug(f"failed attempt to load data dir {self.data_dir}")
             return
 
-        target_folder = self.env.get("target_folder")
         for k, v in config_dict.get("reports", {}).items():
             table_id = v.get("id")
-            target_id = v.get("target_id")
+            target_folder = v.get("target_folder") or self.target_folder
             table_src = os.path.join(self.data_dir, v["src"]) if "src" in v else ""
             table_name = k
             table_refresh = v.get("date", datetime.now())
@@ -102,11 +107,10 @@ class Config:
                     self,
                     table_name,
                     table_id,
-                    target_id,
+                    target_folder,
                     table_refresh,
                     table_tags,
                     table_metadata,
-                    target_folder,
                     table_src,
                 )
             )
@@ -117,9 +121,9 @@ class Config:
     def initialize_summaries(self, config_dict: Dict):
         from ss_reporting_tool.Summary import Summary
 
-        target_folder = self.env.get("target_folder")
         for k, v in config_dict.get("summaries", {}).items():
             table_id = v.get("id")
+            target_folder = v.get("target_folder") or self.target_folder
             table_name = k
             table_refresh = v.get("date", datetime.now())
             table_tags = set(v.get("tags", []))
@@ -143,21 +147,13 @@ class Config:
         print(f"{self.verbose=}, {self.debug=}")
         if not self.data_dir:
             logging.basicConfig(
-                level=(
-                    logging.DEBUG
-                    if self.debug
-                    else (logging.INFO if self.verbose else logging.WARNING)
-                ),
+                level=self.debug and logging.DEBUG or self.verbose and logging.INFO or logging.WARNING,
             )
             return
         logging.basicConfig(
             filename=os.path.join(self.data_dir, "sheet.log"),
             filemode="w",
-            level=(
-                logging.DEBUG
-                if self.debug
-                else (logging.INFO if self.verbose else logging.WARNING)
-            ),
+            level=self.debug and logging.DEBUG or self.verbose and logging.INFO or logging.WARNING,
         )
 
     def to_dict(self) -> Dict:
@@ -178,7 +174,7 @@ class Config:
         for table in self.tables:
             if isinstance(table, Report):
                 reports_dict[table.name] = table.to_dict()
-                print(type(table.metadata))
+                # print(type(table.metadata))
 
         if reports_dict:
             config_dict["reports"] = reports_dict

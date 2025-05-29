@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 class Summary(Table):
 
     def __init__(self, src, name, id, parent_id, last_update, tags, metadata) -> None:
+        self.reports = set()
         super().__init__(src, name, id, parent_id, last_update, tags, metadata)
 
     def buildSummary(self, *args, **kwargs):

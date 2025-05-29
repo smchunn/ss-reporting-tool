@@ -9,11 +9,10 @@ import datetime, os
 class Report(Table):
 
     def __init__(
-        self, cfg, name, id, parent_id, last_update, tags, metadata, target_id, src
+        self, cfg, name, id, target_folder, last_update, tags, metadata, src
     ) -> None:
-        self.target_id: Optional[str] = target_id
         self.src: Optional[str] = src
-        super().__init__(cfg, name, id, parent_id, last_update, tags, metadata)
+        super().__init__(cfg, name, id, target_folder, last_update, tags, metadata)
 
     def load_from_file(self) -> None:
         if not self.src:
@@ -39,5 +38,4 @@ class Report(Table):
         table_dict["src"] = (
             os.path.relpath(self.src, self.cfg.data_dir) if self.src else ""
         )
-        table_dict["target_id"] = self.target_id
         return table_dict

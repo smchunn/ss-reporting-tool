@@ -19,7 +19,7 @@ class Table:
         self.folder_id: str = folder_id
         self.last_update = last_update
         self.tags: Set = tags
-        self.metadata: InlineDict = metadata
+        # self.metadata: InlineDict = metadata
 
         self.data: pl.DataFrame = pl.DataFrame()
         self.sheet_id_to_col_map = None
@@ -164,17 +164,18 @@ class Table:
                 else str(self.last_update)
             ),
             "tags": list(self.tags) if self.tags else [],
-            "metadata": self.metadata if self.metadata else {},
+            # "metadata": self.metadata if self.metadata else {},
         }
         return table_dict
 
     def get(self, key: str):
-        metadata = self.metadata
-        while "." in key and isinstance(metadata, dict):
-            i = key.index(".")
-            metadata = metadata.get(key[0:i])
-            key = key[i + 1 :]
-        if not isinstance(metadata, dict):
-            return None
-
-        return metadata.get(key)
+        pass
+        # metadata = self.metadata
+        # while "." in key and isinstance(metadata, dict):
+        #     i = key.index(".")
+        #     metadata = metadata.get(key[0:i])
+        #     key = key[i + 1 :]
+        # if not isinstance(metadata, dict):
+        #     return None
+        #
+        # return metadata.get(key)

@@ -7,24 +7,33 @@ from polars import col, lit
 from typing import List, Dict, Optional, Callable, Tuple, Any
 
 
-
-
 def refresh_summary(cfg: Config, summaries: List[Summary]):
     """
     make smartsheet table match newly generated excel table without changing _id's
     """
     print("Starting summary feedback ...")
-    reports = []
+    reports = set()
     for summary in summaries:
         for table in cfg.tables:
+            include = True
             if isinstance(table, Report):
                 for tag in summary.tags:
                     if tag not in table.tags:
-                        return
-                reports.append(table)
-
+                        print(table.name)
+                        include = False
+                        break
+                if include:
+                    summary.reports.add(table)
+                    reports.add(table)
 
     threader(lambda x: x.load_from_ss(), reports, cfg.threadcount)
+
+    for summary in summaries:
+        df = summary.buildSummary(summary.reports)
+        if not isinstance(df, pl.DataFrame):
+            return
+        summary.data = df
+
 
     return
     if not reports:
