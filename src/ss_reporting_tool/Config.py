@@ -161,6 +161,7 @@ class Config:
         config_dict = {
             "verbose": self.verbose,
             "threadcount": self.threadcount,
+            "target_folder": self.target_folder or "",
         }
 
         if self.data_dir:

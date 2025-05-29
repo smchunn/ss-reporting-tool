@@ -17,23 +17,7 @@ def main():
     CFG = setup()
     if not isinstance(CFG, Config):
         return
-    reports = [
-        table
-        for table in CFG.tables
-        if isinstance(table, Report)
-    ]
-    eng_reports = [
-        table
-        for table in CFG.tables
-        if isinstance(table, Report) and "engine" in table.tags
-    ]
-    summaries = [table for table in CFG.tables if isinstance(table, Summary)]
-    interchg_summary_tables = [
-        table
-        for table in CFG.tables
-        if isinstance(table, Summary)
-        if "interchg" in table.tags
-    ]
+    reports = [table for table in CFG.tables if isinstance(table, Report)]
     if CFG.function == "get":
         get_sheet(CFG, reports)
     elif CFG.function == "set":
@@ -44,20 +28,20 @@ def main():
         update_sheet_pn_format(CFG, reports)
     elif CFG.function == "dedupe":
         remove_duplicates(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
-    elif CFG.function == "dedupe_engine":
-        remove_duplicates(
-            CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]
-        )
+    # elif CFG.function == "dedupe_engine":
+    #     remove_duplicates(
+    #         CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]
+    #     )
     elif CFG.function == "feedback":
         feedback_loop(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
-    elif CFG.function == "feedback_engine":
-        feedback_loop(CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"])
+    # elif CFG.function == "feedback_engine":
+    #     feedback_loop(CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"])
     elif CFG.function == "reformat":
         reformat_sheet(CFG, reports)
     elif CFG.function == "lock":
         lock_columns(CFG, reports)
-    elif CFG.function == "sum":
-        refresh_summary(CFG, summaries)
+    # elif CFG.function == "sum":
+    #     refresh_summary(CFG, summaries)
 
 
 if __name__ == "__main__":
