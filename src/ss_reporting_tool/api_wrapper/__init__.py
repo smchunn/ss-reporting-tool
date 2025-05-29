@@ -16,4 +16,5 @@ __all__ = [
     "remove_duplicates",
     "set_sheet",
     "update_sheet",
+    "update_sheet_pn_format",
 ]

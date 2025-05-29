@@ -39,16 +39,26 @@ other_columns = [
 agg_exprs = []
 for col in other_columns:
     nonblank = pl.col(col).cast(pl.String).filter(
-    pl.col(col).cast(pl.String).is_not_null() & (pl.col(col).cast(pl.String).str.strip_chars() != "")
-)
-    agg_exprs.append(
-        pl.when(nonblank.n_unique() == 0)
-        .then(pl.lit(""))  # All blank
-        .when(nonblank.n_unique() == 1)
-        .then(nonblank.first())  # Only one unique non-blank value
-        .otherwise(pl.lit("Mixed"))  # More than one unique non-blank value
-        .alias(col)
+        pl.col(col).cast(pl.String).is_not_null() & (pl.col(col).cast(pl.String).str.strip_chars() != "")
     )
+    if col == "STATUS":
+        agg_exprs.append(
+            pl.when(nonblank.n_unique() == 0)
+            .then(pl.lit(""))  # All blank
+            .when(nonblank.n_unique() == 1)
+            .then(nonblank.first())  # Only one unique non-blank value
+            .otherwise(pl.lit("Initial"))  # More than one unique non-blank value
+            .alias(col)
+        )
+    else:
+        agg_exprs.append(
+            pl.when(nonblank.n_unique() == 0)
+            .then(pl.lit(""))  # All blank
+            .when(nonblank.n_unique() == 1)
+            .then(nonblank.first())  # Only one unique non-blank value
+            .otherwise(pl.lit("Mixed"))  # More than one unique non-blank value
+            .alias(col)
+        )
 
 # 5. Add Effectivity columns (always calculated from AC/PROPOSED_ACTION)
 agg_exprs += [
@@ -85,12 +95,26 @@ remaining_columns = [
     if col not in desired_order
 ]
 
-final_column_order = [col for col in desired_order if col in agg_df.columns] + remaining_columns
+completed_statuses = ["Updated", "Validated", "Complete"]
+agg_df = agg_df.with_columns(
+    pl.when(pl.col("STATUS").is_in(completed_statuses))
+      .then(pl.lit("2025-05-29"))
+      .otherwise(pl.lit(""))
+      .alias("COMPLETED DATE")
+)
+
+final_column_order = (
+    [col for col in desired_order if col in agg_df.columns] +
+    [col for col in agg_df.columns if col not in desired_order and col != "COMPLETED DATE"] +
+    ["COMPLETED DATE"]
+)
 
 agg_df = agg_df.select(final_column_order)
 
 # 9. Sort by CATEGORY, then PN
 agg_df = agg_df.sort(group_keys)
+
+
 
 # 10. Split by CATEGORY and write output files
 for category_tuple, group in agg_df.group_by("CATEGORY"):

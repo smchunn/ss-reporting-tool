@@ -39,7 +39,9 @@ def main():
     elif CFG.function == "set":
         set_sheet(CFG, reports)
     elif CFG.function == "update":
-        update_sheet(CFG, reports)
+        update_sheet(CFG, ac_reports)
+    elif CFG.function == "update_pn_format":
+        update_sheet_pn_format(CFG, ac_reports)
     elif CFG.function == "dedupe":
         remove_duplicates(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
     elif CFG.function == "dedupe_engine":
