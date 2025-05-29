@@ -20,12 +20,11 @@ for filename in os.listdir(FOLDER_PATH):
 df_all = pl.concat(all_data, how="vertical_relaxed")
 
 # 3. Identify group keys and all columns
-group_keys = ['CATEGORY', 'PN']
+group_keys = ['INV_CLASS_CD', 'PN']
 
 # Columns to exclude from output (TRAX_HEADER_EFFECTIVE and EFFECTIVITY_PN_INTERCHANGEABLE are NOT excluded)
 exclude_columns = [
-    "PROPOSED_ACTION", "AC", "EFFECTIVE",
-    "PRIORITY", "FEEDBACK", "REPORT_DATE", "REPORT_WEEK"
+    "ACTION", "AC", "EFFECTIVE"
 ]
 
 all_columns = df_all.columns
@@ -52,8 +51,8 @@ for col in other_columns:
 
 # 5. Add Effectivity columns (always calculated from AC/PROPOSED_ACTION)
 agg_exprs += [
-    pl.col("AC").filter(pl.col("PROPOSED_ACTION") == "ADD_EFFECTIVITY").unique().sort().alias("Add Effectivity"),
-    pl.col("AC").filter(pl.col("PROPOSED_ACTION") == "VALIDATE_EFFECTIVITY").unique().sort().alias("Validate Effectivity"),
+    pl.col("AC").filter(pl.col("ACTION") == "ADD_EFFECTIVITY").unique().sort().alias("Add Effectivity"),
+    pl.col("AC").filter(pl.col("ACTION") == "VALIDATE_EFFECTIVITY").unique().sort().alias("Validate Effectivity"),
 ]
 
 # 6. Group and aggregate
@@ -74,9 +73,10 @@ agg_df = (
 
 # 8. Prepare final column order
 desired_order = [
-    "STATUS", "ASSIGNMENT", "NOTES","PN","DESCRIPTION","MAIN_PN","CHAPTER","SECTION","CATEGORY","Add Effectivity", "Validate Effectivity",     
-       "TRAX_HEADER_EFFECTIVE", "EFFECTIVITY_PN_INTERCHANGEABLE", "FLEET",
-    "VENDOR", "CREATED_DATE", "MODIFIED_DATE"
+    "STATUS", "ASSIGNMENT", "NOTES","PN", "PN_MFACT_REF", "PN_DESC", "IPC_REF_CD", "INV_CLASS_CD",
+    "Add Effectivity", "Validate Effectivity",     
+   "FLEET", "ATA_CD", "PRIMARY_PN", "CREATED_DATE", "MODIFIED_DATE"
+
 ]
 
 # Add any other columns not in the desired order, preserving their original order
@@ -89,11 +89,11 @@ final_column_order = [col for col in desired_order if col in agg_df.columns] + r
 
 agg_df = agg_df.select(final_column_order)
 
-# 9. Sort by CATEGORY, then PN
+# 9. Sort by INV_CLASS_CD, then PN
 agg_df = agg_df.sort(group_keys)
 
-# 10. Split by CATEGORY and write output files
-for category_tuple, group in agg_df.group_by("CATEGORY"):
+# 10. Split by INV_CLASS_CD and write output files
+for category_tuple, group in agg_df.group_by("INV_CLASS_CD"):
     category = category_tuple if isinstance(category_tuple, str) else category_tuple[0]
     fleet = group["FLEET"][0] if "FLEET" in group.columns else "FLEET"
     out_filename = f"{fleet}_{category}.xlsx"
