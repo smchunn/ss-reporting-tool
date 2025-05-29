@@ -15,7 +15,7 @@ def set_sheet(cfg: Config, tables: List):
             return
 
         if not table.id:
-            print(f"No existing table, uploading {table.src} to {table.name}")
+            print(f"No existing table, uploading {table.src} to {table.name} in folder [{table.folder_id}]")
             result = ss_api.import_xlsx_sheet(
                 sheet_name=table.name,
                 filepath=os.path.join(table.src),

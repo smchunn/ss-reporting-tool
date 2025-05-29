@@ -174,6 +174,7 @@ class Table:
                 if isinstance(self.last_update, datetime)
                 else str(self.last_update)
             ),
+            "primary_column": self.primary_column,
             "tags": list(self.tags) if self.tags else [],
             # "metadata": self.metadata if self.metadata else {},
         }
