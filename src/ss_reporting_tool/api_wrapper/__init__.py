@@ -7,6 +7,8 @@ from .remove_duplicates import remove_duplicates
 from .set_sheet import set_sheet
 from .update_sheet import update_sheet
 from .update_sheet_pn_format import update_sheet_pn_format
+from .add_cols import add_cols
+from .update_cols import update_cols
 
 __all__ = [
     "feedback_loop",
@@ -18,4 +20,6 @@ __all__ = [
     "set_sheet",
     "update_sheet",
     "update_sheet_pn_format",
+    "add_cols",
+    "update_cols",
 ]

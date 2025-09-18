@@ -12,7 +12,7 @@ def update_sheet(cfg: Config, tables: List):
     Updates the columns in the specified sheets to set "Status" as a dropdown
     and "Created Date" and "Modified Date" as date columns.
     """
-
+    print("updating.99")
     def _update_sheet(table):
         print(f"Updating columns for table: {table.name} (ID: {table.id})")
         column_updates = {

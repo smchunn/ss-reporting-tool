@@ -23,9 +23,9 @@ def lock_columns(cfg: Config, tables: List):
         # Prepare updates for locking columns except for "Status," "Assignment," and "Notes"
         updates = {}
         excluded_columns = {
-            "Status",
-            "Assignment",
-            "Notes",
+            "STATUS",
+            "ASSIGNMENT",
+            "NOTES",
         }  # Set of columns to exclude
         if isinstance(columns, list):
             for col in columns:

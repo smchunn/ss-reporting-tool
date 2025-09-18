@@ -40,6 +40,10 @@ def main():
         reformat_sheet(CFG, reports)
     elif CFG.function == "lock":
         lock_columns(CFG, reports)
+    elif CFG.function == "add_col":
+        add_cols(CFG, reports)
+    elif CFG.function == "update_cols":
+        update_cols(CFG, reports)
     # elif CFG.function == "sum":
     #     refresh_summary(CFG, summaries)
 

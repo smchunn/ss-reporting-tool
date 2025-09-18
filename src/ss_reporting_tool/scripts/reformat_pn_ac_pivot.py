@@ -1,126 +1,96 @@
+import pandas as pd
+import glob
 import os
-import polars as pl
-from sys import argv
+import sys
 
-FOLDER_PATH = argv[1]
-OUTPUT_FOLDER = argv[2]
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+input_folder = sys.argv[1]
+output_folder = sys.argv[2]
+output_file = os.path.join(output_folder, "EFFECTIVITY.xlsx")
 
-all_data = []
-
-# 1. Read all Excel files into Polars DataFrames
-for filename in os.listdir(FOLDER_PATH):
-    if filename.endswith('.xlsx'):
-        file_path = os.path.join(FOLDER_PATH, filename)
-        df = pl.read_excel(file_path)
-        df = df.rename({col: col.upper() for col in df.columns})
-        all_data.append(df)
-
-# 2. Combine all data
-df_all = pl.concat(all_data, how="vertical_relaxed")
-
-# 3. Identify group keys and all columns
-group_keys = ['CATEGORY', 'PN']
-
-# Columns to exclude from output (TRAX_HEADER_EFFECTIVE and EFFECTIVITY_PN_INTERCHANGEABLE are NOT excluded)
-exclude_columns = [
-    "PROPOSED_ACTION", "AC", "EFFECTIVE",
-    "PRIORITY", "FEEDBACK", "REPORT_DATE", "REPORT_WEEK"
+output_columns = [
+    "STATUS", "ASSIGNMENT", "NOTES", "PN", "DESCRIPTION", "MAIN_PN", "CHAPTER",
+    "SECTION", "CATEGORY", "PRIORITY", "Add Effectivity", "Validate Effectivity",
+    "TRAX_HEADER_EFFECTIVE", "EFFECTIVITY_PN_INTERCHANGEABLE", "FLEET", "VENDOR",
+    "CREATED DATE", "MODIFIED DATE", "COMPLETED DATE"
+]
+required_columns = [
+    "STATUS", "ASSIGNMENT", "NOTES", "PN", "DESCRIPTION", "MAIN_PN", "CHAPTER",
+    "SECTION", "CATEGORY", "PRIORITY", "AC", "PROPOSED_ACTION", "TRAX_HEADER_EFFECTIVE",
+    "EFFECTIVITY_PN_INTERCHANGEABLE", "FLEET", "VENDOR", "CREATED DATE", "MODIFIED DATE"
 ]
 
-all_columns = df_all.columns
-# Exclude group keys and excluded columns
-other_columns = [
-    col for col in all_columns
-    if col not in group_keys and col not in exclude_columns
-]
+all_files = glob.glob(os.path.join(input_folder, "*.xlsx"))
+if not all_files:
+    print(f"No .xlsx files found in {input_folder}")
+    sys.exit(1)
 
-# 4. Build aggregation expressions for all columns except group keys and excluded
-agg_exprs = []
-for col in other_columns:
-    nonblank = pl.col(col).cast(pl.String).filter(
-        pl.col(col).cast(pl.String).is_not_null() & (pl.col(col).cast(pl.String).str.strip_chars() != "")
-    )
-    if col == "STATUS":
-        agg_exprs.append(
-            pl.when(nonblank.n_unique() == 0)
-            .then(pl.lit(""))  # All blank
-            .when(nonblank.n_unique() == 1)
-            .then(nonblank.first())  # Only one unique non-blank value
-            .otherwise(pl.lit("Initial"))  # More than one unique non-blank value
-            .alias(col)
-        )
-    else:
-        agg_exprs.append(
-            pl.when(nonblank.n_unique() == 0)
-            .then(pl.lit(""))  # All blank
-            .when(nonblank.n_unique() == 1)
-            .then(nonblank.first())  # Only one unique non-blank value
-            .otherwise(pl.lit("Mixed"))  # More than one unique non-blank value
-            .alias(col)
-        )
+dfs = []
+for f in all_files:
+    df = pd.read_excel(f, dtype=str)
+    df.columns = [c.strip().upper() for c in df.columns]
+    for col in required_columns:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[required_columns]
+    dfs.append(df)
 
-# 5. Add Effectivity columns (always calculated from AC/PROPOSED_ACTION)
-agg_exprs += [
-    pl.col("AC").filter(pl.col("PROPOSED_ACTION") == "ADD_EFFECTIVITY").unique().sort().alias("Add Effectivity"),
-    pl.col("AC").filter(pl.col("PROPOSED_ACTION") == "VALIDATE_EFFECTIVITY").unique().sort().alias("Validate Effectivity"),
-]
+df = pd.concat(dfs, ignore_index=True)
+df["COMPLETED DATE"] = ""
 
-# 6. Group and aggregate
-agg_df = (
-    df_all
-    .group_by(group_keys)
-    .agg(agg_exprs)
-)
+def unique_or_fallback(series, fallback):
+    vals = [v for v in series if pd.notna(v) and str(v).strip() != ""]
+    if len(vals) == 1:
+        return vals[0]
+    elif len(set(vals)) == 1 and vals:
+        return vals[0]
+    elif not vals:
+        return ""
+    return fallback
 
-# 7. Convert effectivity lists to newline-separated strings
-agg_df = (
-    agg_df
-    .with_columns([
-        pl.col("Add Effectivity").list.eval(pl.element().cast(pl.String)).list.join(chr(10)).alias("Add Effectivity"),
-        pl.col("Validate Effectivity").list.eval(pl.element().cast(pl.String)).list.join(chr(10)).alias("Validate Effectivity"),
-    ])
-)
+def concat_unique(series):
+    vals = [v for v in series if pd.notna(v) and str(v).strip() != ""]
+    return "\n".join(sorted(set(vals))) if vals else ""
 
-# 8. Prepare final column order
-desired_order = [
-    "STATUS", "ASSIGNMENT", "NOTES","PN","DESCRIPTION","MAIN_PN","CHAPTER","SECTION","CATEGORY","Add Effectivity", "Validate Effectivity",     
-       "TRAX_HEADER_EFFECTIVE", "EFFECTIVITY_PN_INTERCHANGEABLE", "FLEET",
-    "VENDOR", "CREATED_DATE", "MODIFIED_DATE"
-]
+def effectivity(series, actions, action_value):
+    result = sorted(set(
+        ac for ac, act in zip(series, actions)
+        if act == action_value and pd.notna(ac) and str(ac).strip() != ""
+    ))
+    return "\n".join(result)
 
-# Add any other columns not in the desired order, preserving their original order
-remaining_columns = [
-    col for col in agg_df.columns
-    if col not in desired_order
-]
+def fleet_join(series):
+    result = sorted(set([v for v in series if pd.notna(v) and str(v).strip() != ""]))
+    return "\n".join(result)
 
-completed_statuses = ["Updated", "Validated", "Complete"]
-agg_df = agg_df.with_columns(
-    pl.when(pl.col("STATUS").is_in(completed_statuses))
-      .then(pl.lit("2025-05-29"))
-      .otherwise(pl.lit(""))
-      .alias("COMPLETED DATE")
-)
+grouped = df.groupby("PN", dropna=False).agg({
+    "STATUS": lambda x: unique_or_fallback(x, "In-Work"),
+    "ASSIGNMENT": concat_unique,
+    "NOTES": concat_unique,
+    "PN": "first",
+    "DESCRIPTION": lambda x: unique_or_fallback(x, "Mixed"),
+    "MAIN_PN": lambda x: unique_or_fallback(x, "Mixed"),
+    "CHAPTER": lambda x: unique_or_fallback(x, "Mixed"),
+    "SECTION": lambda x: unique_or_fallback(x, "Mixed"),
+    "CATEGORY": lambda x: unique_or_fallback(x, "Mixed"),
+    "AC": list,
+    "PROPOSED_ACTION": list,
+    "TRAX_HEADER_EFFECTIVE": lambda x: unique_or_fallback(x, "Mixed"),
+    "EFFECTIVITY_PN_INTERCHANGEABLE": lambda x: unique_or_fallback(x, "Mixed"),
+    "FLEET": fleet_join,
+    "VENDOR": lambda x: unique_or_fallback(x, "Mixed"),
+    "COMPLETED DATE": "first",
+    "CREATED DATE": lambda x: unique_or_fallback(x, "Mixed"),
+    "MODIFIED DATE": lambda x: unique_or_fallback(x, "Mixed"),
+}).reset_index(drop=True)
 
-final_column_order = (
-    [col for col in desired_order if col in agg_df.columns] +
-    [col for col in agg_df.columns if col not in desired_order and col != "COMPLETED DATE"] +
-    ["COMPLETED DATE"]
-)
+grouped["Add Effectivity"] = grouped.apply(
+    lambda row: effectivity(row["AC"], row["PROPOSED_ACTION"], "ADD_EFFECTIVITY"), axis=1)
+grouped["Validate Effectivity"] = grouped.apply(
+    lambda row: effectivity(row["AC"], row["PROPOSED_ACTION"], "VALIDATE_EFFECTIVITY"), axis=1)
 
-agg_df = agg_df.select(final_column_order)
+grouped = grouped.drop(columns=["AC", "PROPOSED_ACTION"])
+grouped = grouped[output_columns]
 
-# 9. Sort by CATEGORY, then PN
-agg_df = agg_df.sort(group_keys)
-
-
-
-# 10. Split by CATEGORY and write output files
-for category_tuple, group in agg_df.group_by("CATEGORY"):
-    category = category_tuple if isinstance(category_tuple, str) else category_tuple[0]
-    fleet = group["FLEET"][0] if "FLEET" in group.columns else "FLEET"
-    out_filename = f"{fleet}_{category}.xlsx"
-    out_path = os.path.join(OUTPUT_FOLDER, out_filename)
-    group.write_excel(out_path)
-    print(f"Written: {out_path}")
+os.makedirs(output_folder, exist_ok=True)
+grouped.to_excel(output_file, index=False)
+print(f"Combined file written to {output_file}")

@@ -32,8 +32,9 @@ def update_sheet_pn_format(cfg: Config, tables: List):
             "CREATED DATE": {"type": "DATE"},
             "MODIFIED DATE": {"type": "DATE"},
             "COMPLETED DATE": {"type": "DATE"},
-            "Add Effectivity": {"type": "MULTI_PICKLIST"},
-            "Validate Effectivity": {"type": "MULTI_PICKLIST"},
+            "ADD EFFECTIVITY": {"type": "MULTI_PICKLIST"},
+            "VALIDATE EFFECTIVITY": {"type": "MULTI_PICKLIST"},
+            "FLEET": {"type": "MULTI_PICKLIST"},
             "ASSIGNMENT": {"type": "CONTACT_LIST"},
         }
         columns = ss_api.get_columns(sheet_id=table.id)
