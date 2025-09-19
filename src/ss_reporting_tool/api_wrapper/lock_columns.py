@@ -25,7 +25,8 @@ def lock_columns(cfg: Config, tables: List):
         excluded_columns = {
             "STATUS",
             "ASSIGNMENT",
-            "NOTES",
+            "ACTON",
+            "APPROVAL/ESCALATED",
         }  # Set of columns to exclude
         if isinstance(columns, list):
             for col in columns:

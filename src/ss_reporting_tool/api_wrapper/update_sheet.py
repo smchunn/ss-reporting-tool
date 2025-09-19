@@ -8,29 +8,58 @@ from typing import List
 
 
 def update_sheet(cfg: Config, tables: List):
-    """
-    Updates the columns in the specified sheets to set "Status" as a dropdown
-    and "Created Date" and "Modified Date" as date columns.
-    """
-    print("updating.99")
+
     def _update_sheet(table):
         print(f"Updating columns for table: {table.name} (ID: {table.id})")
         column_updates = {
-            "Status": {
+            "STATUS": {
                 "type": "PICKLIST",
                 "options": [
-                    "Initial",
-                    "Assigned",
-                    "In-Work",
-                    "Issue",
-                    "Updated",
-                    "Re-Opened",
-                    "Validated",
-                    "Complete",
+                    "INITIAL",
+                    "ASSIGNED",
+                    "IN-WORK",
+                    "VALIDATED-NO ACTION",
+                    "VALIDATED-ACTION ",
+                    "APPROVAL-SECOND LEVEL",
+                    "ESCALATED-CONFIG"
+                    "COMPLETE",
                 ],
             },
-            "Created Date": {"type": "DATE"},
-            "Modified Date": {"type": "DATE"},
+            "ACTION": {
+                "type": "PICKLIST",
+                "options": [
+                    "BATCH-REMOVE EFFECTIVITY",
+                    "BATCH-ADD EFFECTIVITY",
+                    "SER-REMOVE EFFECTIVITY",
+                    "SER-ADD EFFECTIVITY",
+                    "TRK-REMOVE EFFECTIVITY",
+                    "TRK-ADD EFFECTIVITY",
+                    "INTERCHANGEABILITY ADD/REMOVE/CHANGE",
+                    "ATA CHANGED",
+                    "APPROVED/UNAPPROVED PART",
+                    "MANUFACTURER CODE CHANGED",
+                    "PART GROUP CHANGED",
+                    "REMOVE/ADD POSITION/QUANTITY",
+                    "NONE",
+                ],
+            },
+            "PN EXISTS": {
+                "type": "PICKLIST",
+                "options": [
+                    "MTX",
+                    "IPC",
+                    "BOTH",
+                ],
+            },
+            "ASSIGNMENT": {"type": "CONTACT_LIST"},
+            "APPROVAL/ESCALATED": {"type": "CONTACT_LIST"},
+            #"CREATED DATE": {"type": "DATE"},
+            "MODIFIED DATE": {"type": "DATE"},
+            #"COMPLETED DATE": {"type": "DATE"},
+            #"IPC EFFECTIVITY MISSING FROM MTX": {"type": "MULTI_PICKLIST"},
+            #"IFS EXISTING EFFECTIVITY VALIDATATION": {"type": "MULTI_PICKLIST"},
+            "IPC_EFF_ALT": {"type": "MULTI_PICKLIST"},
+            "IFS_EFF_ALT": {"type": "MULTI_PICKLIST"},
         }
         columns = ss_api.get_columns(sheet_id=table.id)
         if isinstance(columns, dict):
