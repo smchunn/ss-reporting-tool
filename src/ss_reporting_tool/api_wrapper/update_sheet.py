@@ -54,7 +54,7 @@ def update_sheet(cfg: Config, tables: List):
             "ASSIGNMENT": {"type": "CONTACT_LIST"},
             "APPROVAL/ESCALATED": {"type": "CONTACT_LIST"},
             #"CREATED DATE": {"type": "DATE"},
-            "MODIFIED DATE": {"type": "DATE"},
+            "MODIFIED_DATE": {"type": "DATE"},
             #"COMPLETED DATE": {"type": "DATE"},
             #"IPC EFFECTIVITY MISSING FROM MTX": {"type": "MULTI_PICKLIST"},
             #"IFS EXISTING EFFECTIVITY VALIDATATION": {"type": "MULTI_PICKLIST"},
