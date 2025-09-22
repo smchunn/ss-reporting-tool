@@ -19,11 +19,14 @@ def get_sheet_files(input_dir):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python add_config_entries.py <input_directory> <config_path>")
+        print("Usage: python add_config_entries.py <fleet> <project_path>")
         sys.exit(1)
 
-    input_dir = sys.argv[1]
-    config_path = sys.argv[2]
+    fleet = sys.argv[1]
+    project_path = sys.argv[2]
+
+    input_dir = os.path.join(project_path, "data")
+    config_path = os.path.join(project_path, "config", f"{fleet}_config.toml")
 
     if not os.path.isdir(input_dir):
         print(f"Error: Input directory '{input_dir}' does not exist or is not a directory.")
@@ -34,7 +37,8 @@ def main():
     if 'reports' not in config:
         config['reports'] = {}
 
-    sheet_files = get_sheet_files(input_dir)
+    # Filter sheet files starting with fleet + "_" or fleet + ".xlsx"
+    sheet_files = [f for f in os.listdir(input_dir) if f.endswith('.xlsx') and (f.startswith(f"{fleet}_") or f == f"{fleet}.xlsx")]
 
     added = False
     for sheet_file in sheet_files:

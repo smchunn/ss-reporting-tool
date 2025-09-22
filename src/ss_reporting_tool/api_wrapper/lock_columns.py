@@ -20,12 +20,11 @@ def lock_columns(cfg: Config, tables: List):
             print(f"Error getting columns for '{table.name} (ID: {table.id})'")
             return
 
-        # Prepare updates for locking columns except for "Status," "Assignment," and "Notes"
         updates = {}
         excluded_columns = {
             "STATUS",
             "ASSIGNMENT",
-            "ACTON",
+            "ACTION",
             "APPROVAL/ESCALATED",
         }  # Set of columns to exclude
         if isinstance(columns, list):
