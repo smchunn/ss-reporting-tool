@@ -6,6 +6,7 @@ from .remove_duplicates import remove_duplicates
 from .set_sheet import set_sheet
 from .update_sheet import update_sheet
 from .add_cols import add_cols
+from .update_col_desc import update_col_desc
 
 __all__ = [
     "feedback_loop",
@@ -16,4 +17,5 @@ __all__ = [
     "set_sheet",
     "update_sheet",
     "add_cols",
+    "update_col_desc",
 ]

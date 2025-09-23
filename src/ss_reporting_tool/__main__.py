@@ -24,14 +24,8 @@ def main():
         set_sheet(CFG, reports)
     elif CFG.function == "update":
         update_sheet(CFG, reports)
-    elif CFG.function == "update_pn_format":
-        update_sheet_pn_format(CFG, reports)
-    elif CFG.function == "dedupe":
-        remove_duplicates(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
-    # elif CFG.function == "dedupe_engine":
-    #     remove_duplicates(
-    #         CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"]
-    #     )
+    elif CFG.function == "update_col_desc":
+        update_col_desc(CFG, reports)
     elif CFG.function == "feedback":
         feedback_loop(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
     # elif CFG.function == "feedback_engine":
@@ -42,10 +36,6 @@ def main():
         lock_columns(CFG, reports)
     elif CFG.function == "add_col":
         add_cols(CFG, reports)
-    elif CFG.function == "update_cols":
-        update_cols(CFG, reports)
-    # elif CFG.function == "sum":
-    #     refresh_summary(CFG, summaries)
 
 
 if __name__ == "__main__":

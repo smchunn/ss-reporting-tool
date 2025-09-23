@@ -48,6 +48,7 @@ class Config:
     debug: bool = False
     env: Dict[str, str] = field(default_factory=dict)
     data_dir: Optional[str] = None
+    settings_dir: Optional[str] = None
     target_folder: Optional[str] = None
     tables: List[Table] = field(default_factory=list)  # forward reference
     config_path: Optional[str] = None
@@ -56,6 +57,7 @@ class Config:
     def from_dict(args: CliArgs, config_dict: Dict) -> "Config":
         env = config_dict.get("env", {})
         data_dir = config_dict.get("data_dir")
+        settings_dir = config_dict.get("settings_dir")
         target_folder = config_dict.get("target_folder")
         new_cfg = Config(
             function=args.function,
@@ -64,6 +66,7 @@ class Config:
             debug=args.debug,
             env=env,
             data_dir=data_dir,
+            settings_dir=settings_dir,
             target_folder=target_folder,
             tables=[],
             config_path=args.config_path,
