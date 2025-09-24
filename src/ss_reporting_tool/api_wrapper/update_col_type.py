@@ -5,62 +5,23 @@ import ss_api
 import polars as pl
 from polars import col, lit
 from typing import List
-
+import json
+import os
 
 def update_col_type(cfg: Config, tables: List):
 
     def _update_col_type(table):
         print(f"Updating columns for table: {table.name} (ID: {table.id})")
-        column_updates = {
-            "STATUS": {
-                "type": "PICKLIST",
-                "options": [
-                    "INITIAL",
-                    "ASSIGNED",
-                    "IN-WORK",
-                    "VALIDATED-NO ACTION",
-                    "VALIDATED-ACTION ",
-                    "APPROVAL-SECOND LEVEL",
-                    "ESCALATED-CONFIG",
-                    "COMPLETE",
-                ],
-            },
-            "ACTION": {
-                "type": "PICKLIST",
-                "options": [
-                    "BATCH-REMOVE EFFECTIVITY",
-                    "BATCH-ADD EFFECTIVITY",
-                    "SER-REMOVE EFFECTIVITY",
-                    "SER-ADD EFFECTIVITY",
-                    "TRK-REMOVE EFFECTIVITY",
-                    "TRK-ADD EFFECTIVITY",
-                    "INTERCHANGEABILITY ADD/REMOVE/CHANGE",
-                    "ATA CHANGED",
-                    "APPROVED/UNAPPROVED PART",
-                    "MANUFACTURER CODE CHANGED",
-                    "PART GROUP CHANGED",
-                    "REMOVE/ADD POSITION/QUANTITY",
-                    "NONE",
-                ],
-            },
-            "PN EXISTS": {
-                "type": "PICKLIST",
-                "options": [
-                    "MTX",
-                    "IPC",
-                    "BOTH",
-                ],
-            },
-            "ASSIGNMENT": {"type": "CONTACT_LIST"},
-            "APPROVAL/ESCALATED": {"type": "CONTACT_LIST"},
-            #"CREATED DATE": {"type": "DATE"},
-            "MODIFIED_DATE": {"type": "DATE"},
-            #"COMPLETED DATE": {"type": "DATE"},
-            #"IPC EFFECTIVITY MISSING FROM MTX": {"type": "MULTI_PICKLIST"},
-            #"IFS EXISTING EFFECTIVITY VALIDATATION": {"type": "MULTI_PICKLIST"},
-            "IPC_EFF_ALT": {"type": "MULTI_PICKLIST"},
-            "IFS_EFF_ALT": {"type": "MULTI_PICKLIST"},
-        }
+
+        settings_dir = cfg.settings_dir
+        json_path = os.path.join(settings_dir, "column_types.json")
+        try:
+            with open(json_path, "r") as f:
+                column_updates = json.load(f)
+        except Exception as e:
+            print(f"Error loading column types from {json_path}: {e}")
+            column_updates = {}
+
         columns = ss_api.get_columns(sheet_id=table.id)
         if isinstance(columns, dict):
             columns = columns.get("data", None)
