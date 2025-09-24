@@ -5,12 +5,22 @@ import ss_api
 import polars as pl
 from polars import col, lit
 from typing import List
-
+import json
+import os
 
 def lock_columns(cfg: Config, tables: List):
 
     def _lock_columns(table):
         print(f"Locking columns for table: {table.name} (ID: {table.id})")
+
+        settings_dir = cfg.settings_dir
+        json_path = os.path.join(settings_dir, "lock_columns_excluded.json")
+        try:
+            with open(json_path, "r") as f:
+                excluded_columns = set(json.load(f))
+        except Exception as e:
+            print(f"Error loading excluded columns from {json_path}: {e}")
+            excluded_columns = set()
 
         # Retrieve the columns from the specified sheet
         columns = ss_api.get_columns(sheet_id=table.id)
@@ -21,12 +31,6 @@ def lock_columns(cfg: Config, tables: List):
             return
 
         updates = {}
-        excluded_columns = {
-            "STATUS",
-            "ASSIGNMENT",
-            "ACTION",
-            "APPROVAL/ESCALATED",
-        }  # Set of columns to exclude
         if isinstance(columns, list):
             for col in columns:
                 if isinstance(col, dict) and "title" in col:
