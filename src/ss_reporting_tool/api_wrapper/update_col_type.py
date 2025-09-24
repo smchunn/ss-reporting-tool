@@ -7,9 +7,9 @@ from polars import col, lit
 from typing import List
 
 
-def update_sheet(cfg: Config, tables: List):
+def update_col_type(cfg: Config, tables: List):
 
-    def _update_sheet(table):
+    def _update_col_type(table):
         print(f"Updating columns for table: {table.name} (ID: {table.id})")
         column_updates = {
             "STATUS": {
@@ -21,7 +21,7 @@ def update_sheet(cfg: Config, tables: List):
                     "VALIDATED-NO ACTION",
                     "VALIDATED-ACTION ",
                     "APPROVAL-SECOND LEVEL",
-                    "ESCALATED-CONFIG"
+                    "ESCALATED-CONFIG",
                     "COMPLETE",
                 ],
             },
@@ -90,4 +90,4 @@ def update_sheet(cfg: Config, tables: List):
         print(f"Columns updated for table: {table.name}")
 
     print("Updating columns ...")
-    threader(_update_sheet, tables, cfg.threadcount)
+    threader(_update_col_type, tables, cfg.threadcount)

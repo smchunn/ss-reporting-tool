@@ -123,31 +123,6 @@ class Config:
             if isinstance(table, Report):
                 print(table)
 
-    # def initialize_summaries(self, config_dict: Dict):
-    #     from ss_reporting_tool.Summary import Summary
-    #
-    #     for k, v in config_dict.get("summaries", {}).items():
-    #         table_id = v.get("id")
-    #         target_folder = v.get("target_folder") or self.target_folder
-    #         table_name = k
-    #         table_refresh = v.get("date", datetime.now())
-    #         table_tags = set(v.get("tags", []))
-    #         table_metadata = v.get("metadata", {})
-    #         self.tables.append(
-    #             Summary(
-    #                 self,
-    #                 table_name,
-    #                 table_id,
-    #                 target_folder,
-    #                 table_refresh,
-    #                 table_tags,
-    #                 table_metadata,
-    #             )
-    #         )
-    #     for table in self.tables:
-    #         if isinstance(table, Summary):
-    #             print(table)
-
     def setup_logging(self):
         print(f"{self.verbose=}, {self.debug=}")
         if not self.data_dir:

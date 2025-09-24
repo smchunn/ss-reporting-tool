@@ -22,14 +22,12 @@ def main():
         get_sheet(CFG, reports)
     elif CFG.function == "set":
         set_sheet(CFG, reports)
-    elif CFG.function == "update":
-        update_sheet(CFG, reports)
+    elif CFG.function == "update_col_type":
+        update_col_type(CFG, reports)
     elif CFG.function == "update_col_desc":
         update_col_desc(CFG, reports)
     elif CFG.function == "feedback":
         feedback_loop(CFG, reports, ["AC", "FLEET", "PN", "MAIN_PN", "VENDOR"])
-    # elif CFG.function == "feedback_engine":
-    #     feedback_loop(CFG, eng_reports, ["AC", "FLEET", "PN", "NHA", "TOP", "LEVEL"])
     elif CFG.function == "reformat":
         reformat_sheet(CFG, reports)
     elif CFG.function == "lock":
