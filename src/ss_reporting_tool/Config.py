@@ -147,6 +147,9 @@ class Config:
         if self.data_dir:
             config_dict["data_dir"] = self.data_dir
 
+        if self.settings_dir:
+            config_dict["settings_dir"] = self.settings_dir
+
         # Add env dict if present
         if self.env:
             config_dict["env"] = self.env
