@@ -1,6 +1,7 @@
 import os
 import sys
 import toml
+import json
 
 def load_config(config_path):
     if os.path.exists(config_path):
@@ -17,6 +18,14 @@ def get_sheet_files(input_dir):
     # Consider files with .xlsx extension as sheets
     return [f for f in os.listdir(input_dir) if f.endswith('.xlsx') and os.path.isfile(os.path.join(input_dir, f))]
 
+def load_settings(settings_path):
+    if os.path.exists(settings_path):
+        with open(settings_path, 'r') as f:
+            return json.load(f)
+    else:
+        print(f"Error: Settings file '{settings_path}' not found.")
+        sys.exit(1)
+
 def main():
     if len(sys.argv) != 3:
         print("Usage: python add_config_entries.py <fleet> <project_path>")
@@ -25,14 +34,20 @@ def main():
     fleet = sys.argv[1]
     project_path = sys.argv[2]
 
-    input_dir = os.path.join(project_path, "data")
+    input_dir = os.path.join(project_path, "data", fleet)
     config_path = os.path.join(project_path, "config", f"{fleet}_config.toml")
+    settings_path = os.path.join(project_path, "settings", "config_settings.json")
 
     if not os.path.isdir(input_dir):
         print(f"Error: Input directory '{input_dir}' does not exist or is not a directory.")
         sys.exit(1)
 
     config = load_config(config_path)
+    settings = load_settings(settings_path)
+    if "primary_column" not in settings:
+        print("Error: 'primary_column' not found in settings file.")
+        sys.exit(1)
+    primary_column = settings["primary_column"]
 
     if 'reports' not in config:
         config['reports'] = {}
@@ -48,7 +63,7 @@ def main():
             config['reports'][sheet_name] = {
                 'id': "",
                 'date': "",
-                'primary_column': 7,
+                'primary_column': primary_column,
                 'tags': [],
                 'src': sheet_file
             }
