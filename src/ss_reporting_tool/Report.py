@@ -19,8 +19,12 @@ class Report(Table):
         tags,
         metadata,
         src,
+        match_column: str = None,
+        update_column: str = None,
     ) -> None:
         self.src: Optional[str] = src
+        self.match_column = match_column
+        self.update_column = update_column
         super().__init__(
             cfg, name, id, target_folder, last_update, primary_column, tags, metadata
         )

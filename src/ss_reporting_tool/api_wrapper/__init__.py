@@ -7,6 +7,7 @@ from .set_sheet import set_sheet
 from .update_col_type import update_col_type
 from .add_cols import add_cols
 from .update_col_desc import update_col_desc
+from .update_column import update_column
 
 __all__ = [
     "feedback_loop",
@@ -18,4 +19,5 @@ __all__ = [
     "update_col_type",
     "add_cols",
     "update_col_desc",
+    "update_column",
 ]

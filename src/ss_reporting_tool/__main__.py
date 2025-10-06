@@ -4,7 +4,6 @@ from ss_reporting_tool.Report import Report
 from ss_reporting_tool.Summary import Summary
 from ss_reporting_tool.api_wrapper import *
 import os, logging
-from datetime import datetime
 import polars as pl
 from polars import col, lit
 from datetime import datetime, timezone
@@ -34,6 +33,8 @@ def main():
         lock_columns(CFG, reports)
     elif CFG.function == "add_col":
         add_cols(CFG, reports)
+    elif CFG.function == "update_column":
+        update_column(CFG, reports)
 
 
 if __name__ == "__main__":

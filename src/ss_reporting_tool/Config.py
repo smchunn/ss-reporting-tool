@@ -37,6 +37,8 @@ class CliArgs:
     threadcount: int = 8
     verbose: bool = False
     debug: bool = False
+    match_column: Optional[str] = None
+    update_column: Optional[str] = None
 
 
 @dataclass
@@ -52,6 +54,8 @@ class Config:
     target_folder: Optional[str] = None
     tables: List[Table] = field(default_factory=list)  # forward reference
     config_path: Optional[str] = None
+    match_column: Optional[str] = None
+    update_column: Optional[str] = None
 
     @staticmethod
     def from_dict(args: CliArgs, config_dict: Dict) -> "Config":
@@ -70,12 +74,22 @@ class Config:
             target_folder=target_folder,
             tables=[],
             config_path=args.config_path,
+            match_column=args.match_column,
+            update_column=args.update_column,
         )
         new_cfg.setup_environment()
         new_cfg.setup_data_directory()
         new_cfg.initialize_reports(config_dict)
         # new_cfg.initialize_summaries(config_dict)
         new_cfg.setup_logging()
+        # Override match_column and update_column on reports if provided via CLI args
+        if new_cfg.match_column or new_cfg.update_column:
+            for table in new_cfg.tables:
+                if isinstance(table, Report):
+                    if new_cfg.match_column:
+                        table.match_column = new_cfg.match_column
+                    if new_cfg.update_column:
+                        table.update_column = new_cfg.update_column
         return new_cfg
 
     def setup_environment(self):
@@ -106,6 +120,8 @@ class Config:
             table_primary_column = v.get("primary_column", 0)
             table_tags = set(v.get("tags", []))
             table_metadata = InlineDict(v.get("metadata", {}))
+            match_column = v.get("match_column", None)
+            update_column = v.get("update_column", None)
             self.tables.append(
                 Report(
                     self,
@@ -117,6 +133,8 @@ class Config:
                     table_tags,
                     table_metadata,
                     table_src,
+                    match_column,
+                    update_column,
                 )
             )
         for table in self.tables:
@@ -211,8 +229,18 @@ def cli_args() -> CliArgs:
     argparser.add_argument("--verbose", action="store_true")
     argparser.add_argument("--threadcount", help="set # of threads", default=8)
     argparser.add_argument("--debug", action="store_true")
+    argparser.add_argument("--match-column", type=str, help="column to match on")
+    argparser.add_argument("--update-column", type=str, help="column to update")
     args = argparser.parse_args()
-    return CliArgs(args.func, args.config, args.threadcount, args.verbose, args.debug)
+    return CliArgs(
+        args.func,
+        args.config,
+        args.threadcount,
+        args.verbose,
+        args.debug,
+        args.match_column,
+        args.update_column,
+    )
 
 
 def setup():
