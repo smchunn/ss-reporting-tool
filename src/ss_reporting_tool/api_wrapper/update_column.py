@@ -62,6 +62,8 @@ def update_column(cfg: Config, reports):
 
             if match_value in excel_lookup:
                 new_value = excel_lookup[match_value]
+                if pd.isna(new_value):
+                    new_value = None
                 update_row = {
                     "id": row["id"],
                     "cells": [
