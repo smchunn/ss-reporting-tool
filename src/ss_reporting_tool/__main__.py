@@ -35,6 +35,8 @@ def main():
         add_cols(CFG, reports)
     elif CFG.function == "update_column":
         update_column(CFG, reports)
+    elif CFG.function == "create_references":
+        create_references(CFG, reports)
 
 
 if __name__ == "__main__":
