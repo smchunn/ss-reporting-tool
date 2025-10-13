@@ -57,6 +57,32 @@ class Config:
     match_column: Optional[str] = None
     update_column: Optional[str] = None
 
+    def initialize_summaries(self, config_dict: Dict):
+        from ss_reporting_tool.Summary import Summary
+
+        if not self.data_dir:
+            return
+
+        for k, v in config_dict.get("summary", {}).items():
+            table_id = v.get("id")
+            target_folder = v.get("target_folder") or self.target_folder
+            table_name = k
+            table_refresh = v.get("date", datetime.now())
+            table_tags = set(v.get("tags", []))
+            table_metadata = InlineDict(v.get("metadata", {}))
+            self.tables.append(
+                Summary(
+                    self,
+                    None,  # src is None for summary sheets
+                    table_name,
+                    table_id,
+                    table_refresh,
+                    table_tags,
+                    target_folder,
+                    table_metadata,
+                )
+            )
+
     @staticmethod
     def from_dict(args: CliArgs, config_dict: Dict) -> "Config":
         env = config_dict.get("env", {})
@@ -80,7 +106,7 @@ class Config:
         new_cfg.setup_environment()
         new_cfg.setup_data_directory()
         new_cfg.initialize_reports(config_dict)
-        # new_cfg.initialize_summaries(config_dict)
+        new_cfg.initialize_summaries(config_dict)
         new_cfg.setup_logging()
         # Override match_column and update_column on reports if provided via CLI args
         if new_cfg.match_column or new_cfg.update_column:
