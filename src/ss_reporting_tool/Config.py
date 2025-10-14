@@ -70,7 +70,6 @@ class Config:
             table_name = k
             table_refresh = v.get("date", datetime.now())
             table_tags = set(v.get("tags", []))
-            primary_column = None
             metadata = {}
             summary_obj = Summary(
                 self,
@@ -79,7 +78,7 @@ class Config:
                 table_id,
                 table_refresh,
                 table_tags,
-                None,  # Do not save primary_column for summary entries
+                None,  # Do not set primary_column for summary entries
                 target_folder,
                 metadata,
             )
@@ -207,7 +206,11 @@ class Config:
             if isinstance(table, Report):
                 reports_dict[table.name] = table.to_dict()
             elif isinstance(table, Summary):
-                summary_dict[table.name] = table.to_dict()
+                # Remove primary_column from summary dict to avoid incorrect serialization
+                table_dict = table.to_dict()
+                if "primary_column" in table_dict:
+                    del table_dict["primary_column"]
+                summary_dict[table.name] = table_dict
 
         if reports_dict:
             config_dict["reports"] = reports_dict

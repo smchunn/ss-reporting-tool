@@ -17,13 +17,13 @@ def create_summary(cfg: Config, tables: List[Summary]):
         None
     """
     print("reached")
-    rollup_path = os.path.join(cfg.settings_dir, "rollup_summary.json")
+    column_def_path = os.path.join(cfg.settings_dir, "columns.json")
     try:
-        with open(rollup_path, "r") as f:
-            rollup_settings = json.load(f)
+        with open(column_def_path, "r") as f:
+            column_defs = json.load(f)
     except Exception as e:
-        print(f"Failed to load rollup summary settings from {rollup_path}: {e}")
-        rollup_settings = {}
+        print(f"Failed to load rollup summary settings from {column_def_path}: {e}")
+        column_defs = {}
 
     for table in tables:
         if not table.id:
@@ -33,7 +33,7 @@ def create_summary(cfg: Config, tables: List[Summary]):
                 return
             sheet_definition = {
                 "name": table.name,
-                "columns": rollup_settings.get("columns", [])
+                "columns": column_defs.get("columns", [])
             }
             print(f"Sending create_sheet request with folder_id={folder_id} and sheet_definition={sheet_definition}")
             result = ss_api.create_sheet(folder_id, sheet_definition)
