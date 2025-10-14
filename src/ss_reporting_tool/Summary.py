@@ -21,13 +21,22 @@ class Summary(Table):
         self.settings = self.load_settings()
 
     def load_settings(self):
+        # Modified to load parameters.json format for settings
         settings_path = self.metadata.get("settings_path")
         if not settings_path:
             return {}
         try:
             with open(settings_path, 'r') as f:
                 settings = json.load(f)
-            return settings
+            # Adapt settings to expected format if needed
+            # For example, extract "parameters" and "filter_combinations" as settings keys
+            adapted_settings = {
+                "parameters": settings.get("parameters", {}),
+                "filter_combinations": settings.get("filter_combinations", []),
+                # Add other keys as needed for layout or metrics
+                "metrics": ["count"]  # default metric if not present
+            }
+            return adapted_settings
         except Exception as e:
             print(f"Failed to load settings from {settings_path}: {e}")
             return {}

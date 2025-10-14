@@ -40,6 +40,8 @@ def main():
         create_references(CFG, reports)
     elif CFG.function == "create_summary":
         create_summary(CFG, summary)
+    elif CFG.function == "rollup_summary":
+        rollup_summary(CFG, summary)
 
 
 if __name__ == "__main__":

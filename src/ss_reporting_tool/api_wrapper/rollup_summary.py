@@ -8,9 +8,8 @@ import ss_api
 
 def rollup_summary(cfg: Config, tables: List[Summary]):
     """
-    Wrapper function to create summary sheets in Smartsheet with each of the combinations
-    in summary_settings.json. For each combination, creates a table where columns and rows
-    correspond to the group_by fields, and cells contain counts (formulas left blank for now).
+    Create and build summary sheets in Smartsheet for each summary table with a "rollup" tag,
+    using filter combinations and parameters from summary_settings/parameters.json.
 
     Args:
         cfg (Config): Configuration object containing settings_dir and other config.
@@ -19,65 +18,157 @@ def rollup_summary(cfg: Config, tables: List[Summary]):
     Returns:
         None
     """
-
-    settings_path = os.path.join(cfg.settings_dir, "summary_settings.json")
+    parameters_path = os.path.join(cfg.settings_dir, "parameters.json")
     try:
-        with open(settings_path, "r") as f:
-            summary_settings = json.load(f)
+        with open(parameters_path, "r") as f:
+            parameters_settings = json.load(f)
+        print(f"Loaded parameters settings: {parameters_settings}")
     except Exception as e:
-        print(f"Failed to load summary settings from {settings_path}: {e}")
-        summary_settings = {}
+        print(f"Failed to load parameters settings from {parameters_path}: {e}")
+        parameters_settings = {}
+
+    # Filter tables with "rollup" tag
+    rollup_tables = [table for table in tables if "rollup" in table.tags]
+    print(f"Filtered rollup tables: {[table.name for table in rollup_tables]}")
 
     def _rollup_summary(table: Summary):
         if not hasattr(table, "metadata") or not isinstance(table.metadata, dict):
             table.metadata = {}
-        table.metadata["settings_path"] = settings_path
-        table.settings = summary_settings
+        table.metadata["settings_path"] = parameters_path
+        # Reload settings after updating metadata
+        table.settings = table.load_settings()
 
-        # Create or update the summary sheet in Smartsheet
-        if not table.id:
-            # Create new sheet with name and empty columns initially
-            result = ss_api.create_sheet(table.name, [])
-            if result and "result" in result:
-                table.id = result["result"]["id"]
-                print(f"Created new summary sheet with ID {table.id}")
-            else:
-                print("Failed to create summary sheet.")
-                return
+        # Track the current row index for insertion, starting at 2 (second row)
+        current_row_index = 2
+
+        # Fetch sheet columns to map titles to IDs
+        print(f"Fetching columns for sheet ID: {table.id}")
+        sheet_columns = ss_api.get_columns(table.id)
+        if not sheet_columns or "data" not in sheet_columns:
+            print(f"Failed to fetch columns for sheet {table.name} with ID {table.id}")
+            return
+        col_title_to_id = {col["title"]: col["id"] for col in sheet_columns.get("data", [])}
+        print(f"Column title to ID mapping: {col_title_to_id}")
+
+        # Get the second column ID (start column)
+        if sheet_columns and "data" in sheet_columns and len(sheet_columns["data"]) > 1:
+            start_col_id = sheet_columns["data"][1]["id"]
         else:
-            print(f"Using existing summary sheet with ID {table.id}")
+            print("Warning: Sheet does not have a second column, defaulting to first column")
+            start_col_id = sheet_columns["data"][0]["id"] if sheet_columns and "data" in sheet_columns and len(sheet_columns["data"]) > 0 else None
 
-        # For each filter combination, create a section in the sheet
-        for combo in summary_settings.get("filter_combinations", []):
+        print(f"Using start_col_id: {start_col_id}")
+
+        # Fetch existing rows to update
+        sheet_data = ss_api.get_sheet(table.id)
+        if not sheet_data or "rows" not in sheet_data:
+            print(f"Failed to fetch rows for sheet {table.name} with ID {table.id}")
+            return
+        existing_rows = sheet_data["rows"]
+        print(f"Existing rows count: {len(existing_rows)}")
+
+        # Prepare updates list
+        updates = []
+        new_rows = []
+
+        for combo in parameters_settings.get("filter_combinations", []):
             group_by = combo.get("group_by", [])
             metrics = combo.get("metrics", [])
 
-            # Build columns: one for each group_by field value plus a header column
-            columns = [{"title": group_by[0], "type": "TEXT_NUMBER"}] if group_by else []
-            # For simplicity, assume first group_by field values come from parameters
+            print(f"Processing filter combination: group_by={group_by}, metrics={metrics}")
+
+            # Build header row values
+            header_row_values = [group_by[0]] if group_by else []
             if group_by:
-                first_group_values = summary_settings.get("parameters", {}).get(group_by[0], [])
-                for val in first_group_values:
-                    columns.append({"title": val, "type": "TEXT_NUMBER"})
+                first_group_values = parameters_settings.get("parameters", {}).get(group_by[0], [])
+                header_row_values.extend(first_group_values)
 
-            # Create or update columns in the sheet (placeholder, actual API calls needed)
-            print(f"Creating columns for group_by {group_by}: {[col['title'] for col in columns]}")
+            # Prepare header text
+            header_text = " | ".join(header_row_values)
+            print(f"Constructed header text: {header_text}")
 
-            # Build rows: one for each value of second group_by field if exists
-            rows = []
+            # Determine row to update or create new
+            if current_row_index - 1 < len(existing_rows):
+                row_to_update = existing_rows[current_row_index - 1]
+                row_id = row_to_update["id"]
+                # Prepare header cell update
+                header_cell = {
+                    "columnId": start_col_id,
+                    "value": header_text,
+                }
+                header_row_update = {
+                    "id": row_id,
+                    "toTop": False,
+                    "toBottom": False,
+                    "cells": [header_cell],
+                }
+                updates.append(header_row_update)
+            else:
+                # Create new row for header
+                header_cells = [{"columnId": start_col_id, "value": header_text}]
+                new_rows.append({"toBottom": True, "cells": header_cells})
+
+            # Prepare data rows updates
+            data_rows = []
             if len(group_by) > 1:
-                second_group_values = summary_settings.get("parameters", {}).get(group_by[1], [])
+                second_group_values = parameters_settings.get("parameters", {}).get(group_by[1], [])
                 for val in second_group_values:
-                    # Each row starts with the row header (second group value)
-                    row = {"cells": [{"columnId": None, "value": val}]}
-                    # Add empty cells for each column (formulas to be added later)
-                    for _ in first_group_values:
-                        row["cells"].append({"columnId": None, "value": None})
-                    rows.append(row)
+                    data_rows.append([val])
 
-            # Placeholder: Insert rows and columns into sheet via API (not implemented)
-            print(f"Prepared {len(rows)} rows for group_by {group_by}")
+            for i, row_vals in enumerate(data_rows):
+                row_text = row_vals[0] if row_vals else ""
+                row_index = current_row_index + 1 + i
+                if row_index - 1 < len(existing_rows):
+                    row_to_update = existing_rows[row_index - 1]
+                    row_id = row_to_update["id"]
+                    data_cell = {
+                        "columnId": start_col_id,
+                        "value": row_text,
+                    }
+                    data_row_update = {
+                        "id": row_id,
+                        "toTop": False,
+                        "toBottom": False,
+                        "cells": [data_cell],
+                    }
+                    updates.append(data_row_update)
+                else:
+                    # Create new row for data
+                    data_cells = [{"columnId": start_col_id, "value": row_text}]
+                    new_rows.append({"toBottom": True, "cells": data_cells})
+
+            # Add empty row for spacing
+            spacing_row_index = current_row_index + 1 + len(data_rows)
+            if spacing_row_index - 1 < len(existing_rows):
+                row_to_update = existing_rows[spacing_row_index - 1]
+                row_id = row_to_update["id"]
+                empty_row_update = {
+                    "id": row_id,
+                    "toTop": False,
+                    "toBottom": False,
+                    "cells": [],
+                }
+                updates.append(empty_row_update)
+            else:
+                # Create new empty row
+                new_rows.append({"toBottom": True, "cells": []})
+
+            # Update current_row_index for next table
+            current_row_index += 2 + len(data_rows)
+
+        # Batch update existing rows
+        if updates:
+            print(f"Prepared updates for sheet {table.name}:")
+            for update in updates:
+                print(update)
+            ss_api.update_sheet(table.id, updates)
+            print(f"Updated {len(updates)} rows in sheet {table.name}")
+
+        # Add new rows if any
+        if new_rows:
+            print(f"Adding {len(new_rows)} new rows to sheet {table.name}")
+            ss_api.add_rows(table.id, new_rows)
 
         table.build_and_refresh()
 
-    threader(_rollup_summary, tables, cfg.threadcount)
+    threader(_rollup_summary, rollup_tables, cfg.threadcount)
