@@ -17,6 +17,7 @@ def main():
     if not isinstance(CFG, Config):
         return
     reports = [table for table in CFG.tables if isinstance(table, Report)]
+    summary = [table for table in CFG.tables if isinstance(table, Summary)]
     if CFG.function == "get":
         get_sheet(CFG, reports)
     elif CFG.function == "set":
@@ -37,6 +38,8 @@ def main():
         update_column(CFG, reports)
     elif CFG.function == "create_references":
         create_references(CFG, reports)
+    elif CFG.function == "create_summary":
+        create_summary(CFG, summary)
 
 
 if __name__ == "__main__":

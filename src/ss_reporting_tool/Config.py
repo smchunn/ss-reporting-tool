@@ -69,19 +69,21 @@ class Config:
             table_name = k
             table_refresh = v.get("date", datetime.now())
             table_tags = set(v.get("tags", []))
-            table_metadata = InlineDict(v.get("metadata", {}))
-            self.tables.append(
-                Summary(
-                    self,
-                    None,  # src is None for summary sheets
-                    table_name,
-                    table_id,
-                    table_refresh,
-                    table_tags,
-                    target_folder,
-                    table_metadata,
-                )
+            primary_column = None
+            metadata = {}
+            summary_obj = Summary(
+                self,
+                None,  # src is None for summary sheets
+                table_name,
+                table_id,
+                table_refresh,
+                table_tags,
+                primary_column,
+                target_folder,
+                metadata,
             )
+            summary_obj.target_folder = target_folder
+            self.tables.append(summary_obj)
 
     @staticmethod
     def from_dict(args: CliArgs, config_dict: Dict) -> "Config":

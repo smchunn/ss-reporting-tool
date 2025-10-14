@@ -9,9 +9,14 @@ from dataclasses import dataclass, field
 
 class Summary(Table):
 
-    def __init__(self, cfg, src, name, id, last_update, tags, fleet, metadata) -> None:
+    def __init__(self, cfg, src, name, id, last_update, tags, fleet, primary_column=None, metadata=None) -> None:
         self.reports = set()
-        super().__init__(cfg, name, id, None, last_update, tags, metadata)
+        if primary_column is None:
+            primary_column = 0
+        if metadata is None:
+            metadata = {}
+        self.metadata = metadata
+        super().__init__(cfg, name, id, None, last_update, primary_column, tags, metadata)
         self.fleet = fleet
         self.settings = self.load_settings()
 
