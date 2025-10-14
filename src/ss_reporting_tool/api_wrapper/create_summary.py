@@ -38,7 +38,7 @@ def create_summary(cfg: Config, tables: List[Summary]):
             print(f"Sending create_sheet request with folder_id={folder_id} and sheet_definition={sheet_definition}")
             result = ss_api.create_sheet(folder_id, sheet_definition)
             if result and "result" in result:
-                table.id = result["result"]["id"]
+                table.id = str(result["result"]["id"])
                 print(f"Created new empty summary sheet with ID {table.id}")
                 cfg.serialize()
             else:

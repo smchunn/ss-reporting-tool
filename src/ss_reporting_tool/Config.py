@@ -8,6 +8,7 @@ from typing import List, Dict, Callable, Union, Set, Optional, IO
 from dataclasses import dataclass, field
 from ss_reporting_tool.Report import Report
 from ss_reporting_tool.Table import Table
+from ss_reporting_tool.Summary import Summary
 
 import sys, re
 
@@ -78,7 +79,7 @@ class Config:
                 table_id,
                 table_refresh,
                 table_tags,
-                primary_column,
+                None,  # Do not save primary_column for summary entries
                 target_folder,
                 metadata,
             )
@@ -201,13 +202,18 @@ class Config:
             config_dict["env"] = self.env
 
         reports_dict = {}
+        summary_dict = {}
         for table in self.tables:
             if isinstance(table, Report):
                 reports_dict[table.name] = table.to_dict()
-                # print(type(table.metadata))
+            elif isinstance(table, Summary):
+                summary_dict[table.name] = table.to_dict()
 
         if reports_dict:
             config_dict["reports"] = reports_dict
+
+        if summary_dict:
+            config_dict["summary"] = summary_dict
 
         return config_dict
 
